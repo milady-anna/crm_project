@@ -1,0 +1,64 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CRM Мерч{% endblock %}</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .sidebar { min-height: 100vh; background-color: #212529; color: white; }
+        .sidebar a { color: #adb5bd; text-decoration: none; padding: 10px 15px; display: block; }
+        .sidebar a:hover, .sidebar a.active { background-color: #0d6efd; color: white; }
+        .main-content { padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Боковое меню -->
+            <nav class="col-md-2 d-none d-md-block sidebar p-0">
+                <div class="p-3 text-center border-bottom border-secondary">
+                    <h4 class="mb-0">🚀 CRM Мерч</h4>
+                    <small class="text-muted">{{ user.get_full_name|default:user.username }}</small>
+                </div>
+                <div class="mt-3">
+                    <a href="{% url 'dashboard:order_list' %}" class="{% if request.resolver_match.url_name == 'order_list' %}active{% endif %}">
+                        <i class="bi bi-list-check"></i> Список заказов
+                    </a>
+                    <a href="#" class="text-muted"><i class="bi bi-kanban"></i> Канбан (скоро)</a>
+                    <a href="#" class="text-muted"><i class="bi bi-cash-stack"></i> Финансы (скоро)</a>
+                    <hr class="border-secondary">
+                    <form action="{% url 'logout' %}" method="post" class="px-3">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-light btn-sm w-100">
+                            <i class="bi bi-box-arrow-right"></i> Выйти
+                        </button>
+                    </form>
+                </div>
+            </nav>
+
+            <!-- Основной контент -->
+            <main class="col-md-10 ms-sm-auto main-content">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+                    {% endfor %}
+                {% endif %}
+                
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+    </div>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

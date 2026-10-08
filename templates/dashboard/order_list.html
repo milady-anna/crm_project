@@ -1,0 +1,100 @@
+<!-- templates/dashboard/order_list.html -->
+{% extends 'base.html' %}
+
+{% block title %}Список заказов{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Список заказов</h1>
+    <a href="{% url 'admin:orders_order_add' %}" class="btn btn-success">
+        <i class="bi bi-plus-lg"></i> Новый заказ
+    </a>
+</div>
+
+<!-- Фильтры и поиск -->
+<form method="get" class="row g-3 mb-4">
+    <div class="col-md-4">
+        <input type="text" name="search" class="form-control" placeholder="Поиск по номеру или клиенту..." value="{{ request.GET.search }}">
+    </div>
+    <div class="col-md-3">
+        <select name="stage" class="form-select">
+            <option value="">Все этапы</option>
+            {% for stage in stages %}
+                <option value="{{ stage.id }}" {% if request.GET.stage == stage.id|stringformat:"s" %}selected{% endif %}>
+                    {{ stage.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">Применить</button>
+    </div>
+    <div class="col-md-2">
+        <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary w-100">Сбросить</a>
+    </div>
+</form>
+
+<!-- Таблица заказов -->
+<div class="card shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>№ Заказа</th>
+                    <th>Клиент</th>
+                    <th>Тип</th>
+                    <th>Текущий этап</th>
+                    <th>Дедлайн</th>
+                    <th>Сумма</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr class="{% if order.deadline_plan < today and not order.current_stage.is_final %}table-danger{% endif %}">
+                    <td class="fw-bold">{{ order.number }}</td>
+                    <td>{{ order.client.short_name|default:order.client.full_name }}</td>
+                    <td><span class="badge bg-info text-dark">{{ order.order_type.name }}</span></td>
+                    <td>{{ order.current_stage.name|default:"Не назначен" }}</td>
+                    <td>
+                        {{ order.deadline_plan|date:"d.m.Y" }}
+                        {% if order.deadline_plan < today and not order.current_stage.is_final %}
+                            <i class="bi bi-exclamation-triangle-fill text-danger" title="Просрочено!"></i>
+                        {% endif %}
+                    </td>
+                    <td>{{ order.contract_amount|default:"0" }} ₽</td>
+                    <td>
+                        <a href="{% url 'admin:orders_order_change' order.id %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">Заказы не найдены</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Пагинация -->
+{% if is_paginated %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1&search={{ request.GET.search }}&stage={{ request.GET.stage }}">Первая</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}">Назад</a></li>
+        {% endif %}
+        
+        <li class="page-item active"><span class="page-link">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span></li>
+        
+        {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}">Вперед</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}">Последняя</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

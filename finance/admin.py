@@ -16,8 +16,9 @@ class DocumentInline(admin.TabularInline):
 
 @admin.register(BudgetItem)
 class BudgetItemAdmin(admin.ModelAdmin):
-    list_display = ('order', 'component_name', 'contractor', 'amount_plan', 'date_plan', 'status')
-    list_filter = ('status', 'flow_type', 'order')
+    # Заменили 'status' на 'payment_state'
+    list_display = ('order', 'component_name', 'contractor', 'amount_plan', 'date_plan', 'payment_state')
+    list_filter = ('flow_type', 'order')
     search_fields = ('component_name', 'contractor__name')
     inlines = [TransactionInline]
 

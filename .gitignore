@@ -19,3 +19,4 @@ db.sqlite3
 # IDE (настройки редактора)
 .vscode/
 .idea/
+media/

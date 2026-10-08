@@ -1,5 +1,9 @@
+# products/models.py
 from django.db import models
-from partners.models import Contractor  # <-- Импортируем таблицу Подрядчиков
+from partners.models import Contractor
+
+# МЫ НЕ ИМПОРТИРУЕМ модели из orders здесь! Это ломает цикл.
+
 
 class OurProduct(models.Model):
     """Наши товары (то, что мы продаем клиентам)"""
@@ -10,14 +14,8 @@ class OurProduct(models.Model):
         default=0, 
         verbose_name="Цена продажи без НДС"
     )
-    min_quantity = models.IntegerField(
-        default=1, 
-        verbose_name="Минимальный тираж (шт.)"
-    )
-    production_days = models.IntegerField(
-        default=1, 
-        verbose_name="Срок производства (дней)"
-    )
+    min_quantity = models.IntegerField(default=1, verbose_name="Минимальный тираж (шт.)")
+    production_days = models.IntegerField(default=1, verbose_name="Срок производства (дней)")
 
     def __str__(self):
         return self.name
@@ -29,21 +27,15 @@ class OurProduct(models.Model):
 
 class SupplierProduct(models.Model):
     """Товары и услуги поставщиков"""
-    
-    # ЗАМЕНИЛИ текстовое поле на ссылку (ForeignKey)
     contractor = models.ForeignKey(
         Contractor, 
-        on_delete=models.PROTECT,# Запрещает удалять подрядчика, если у него есть товары
-        null=True,    # <-- Всегда добавляйте при разработке
-        blank=True,  
+        on_delete=models.PROTECT, 
+        null=True, 
+        blank=True, 
         verbose_name="Поставщик"
     )
     name = models.CharField(max_length=200, verbose_name="Название товара/услуги")
-    product_type = models.CharField(
-        max_length=100, 
-        blank=True, 
-        verbose_name="Тип (Одежда, Печать, Упаковка)"
-    )
+    product_type = models.CharField(max_length=100, blank=True, verbose_name="Тип (Одежда, Печать, Упаковка)")
     color = models.CharField(max_length=50, blank=True, verbose_name="Цвет")
     size = models.CharField(max_length=50, blank=True, verbose_name="Размер")
     unit_price = models.DecimalField(
@@ -52,10 +44,7 @@ class SupplierProduct(models.Model):
         default=0, 
         verbose_name="Цена закупки без НДС"
     )
-    lead_time_days = models.IntegerField(
-        default=1, 
-        verbose_name="Срок поставки (дней)"
-    )
+    lead_time_days = models.IntegerField(default=1, verbose_name="Срок поставки (дней)")
 
     def __str__(self):
         return f"{self.name} ({self.contractor})"
@@ -64,8 +53,9 @@ class SupplierProduct(models.Model):
         verbose_name = "Товар поставщика"
         verbose_name_plural = "Товары поставщиков"
 
+
 class ProductComponent(models.Model):
-    """Состав нашего товара (спецификация) - из чего состоит и на каком этапе оплачивается"""
+    """Состав нашего товара (спецификация)"""
     our_product = models.ForeignKey(
         OurProduct, 
         on_delete=models.CASCADE, 
@@ -83,6 +73,10 @@ class ProductComponent(models.Model):
         default=1,
         verbose_name="Количество на 1 шт. нашего товара"
     )
+    
+    # !!! ГЛАВНОЕ ИСПРАВЛЕНИЕ !!!
+    # Используем строку 'app_name.ModelName' вместо прямого импорта.
+    # Это полностью устраняет циклический импорт.
     substage_template = models.ForeignKey(
         'orders.SubstageTemplate', 
         on_delete=models.SET_NULL,
