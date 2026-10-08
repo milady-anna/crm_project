@@ -63,3 +63,37 @@ class SupplierProduct(models.Model):
     class Meta:
         verbose_name = "Товар поставщика"
         verbose_name_plural = "Товары поставщиков"
+
+class ProductComponent(models.Model):
+    """Состав нашего товара (спецификация) - из чего состоит и на каком этапе оплачивается"""
+    our_product = models.ForeignKey(
+        OurProduct, 
+        on_delete=models.CASCADE, 
+        related_name='components',
+        verbose_name="Наш товар"
+    )
+    supplier_product = models.ForeignKey(
+        SupplierProduct, 
+        on_delete=models.PROTECT,
+        verbose_name="Товар/услуга поставщика"
+    )
+    quantity = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=1,
+        verbose_name="Количество на 1 шт. нашего товара"
+    )
+    substage_template = models.ForeignKey(
+        'orders.SubstageTemplate', 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Шаблон подэтапа (когда оплачивать)"
+    )
+    
+    def __str__(self):
+        return f"{self.supplier_product.name} для {self.our_product.name}"
+    
+    class Meta:
+        verbose_name = "Компонент товара"
+        verbose_name_plural = "Компоненты товаров"
