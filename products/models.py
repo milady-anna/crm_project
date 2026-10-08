@@ -12,18 +12,40 @@ class OurProduct(models.Model):
         max_digits=10, 
         decimal_places=2, 
         default=0, 
-        verbose_name="Цена продажи без НДС"
+        verbose_name="Цена продажи без НДС (базовая)"
     )
     min_quantity = models.IntegerField(default=1, verbose_name="Минимальный тираж (шт.)")
     production_days = models.IntegerField(default=1, verbose_name="Срок производства (дней)")
+    auto_calculate_price = models.BooleanField(
+        default=True, 
+        verbose_name="Автоматически считать базовую цену по спецификации"
+    )
 
     def __str__(self):
         return self.name
 
+    @property
+    def min_cost(self):
+        """Минимальная себестоимость на основе компонентов спецификации"""
+        components = self.components.select_related('supplier_product').all()
+        if not components.exists():
+            return 0
+        
+        total = 0
+        for comp in components:
+            total += comp.quantity * comp.supplier_product.unit_price
+        return total
+
+    def save(self, *args, **kwargs):
+        # Автоматически считаем базовую цену, если включена опция
+        if self.auto_calculate_price:
+            self.sale_price = self.min_cost
+        
+        super().save(*args, **kwargs)
+
     class Meta:
         verbose_name = "Наш товар"
         verbose_name_plural = "Наши товары"
-
 
 class SupplierProduct(models.Model):
     """Товары и услуги поставщиков"""
@@ -78,12 +100,12 @@ class ProductComponent(models.Model):
     # Используем строку 'app_name.ModelName' вместо прямого импорта.
     # Это полностью устраняет циклический импорт.
     substage_template = models.ForeignKey(
-        'orders.SubstageTemplate', 
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name="Шаблон подэтапа (когда оплачивать)"
-    )
+    'orders.SubstageTemplate',  # или 'workflow.SubstageTemplate'
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    verbose_name="Шаблон подэтапа (когда оплачивать)"
+)
     
     def __str__(self):
         return f"{self.supplier_product.name} для {self.our_product.name}"

@@ -1,15 +1,28 @@
+# products/admin.py
 from django.contrib import admin
-from .models import OurProduct, SupplierProduct
+from .models import OurProduct, SupplierProduct, ProductComponent
+
+
+class ProductComponentInline(admin.TabularInline):
+    """Позволяет добавлять компоненты (спецификацию) прямо на странице товара"""
+    model = ProductComponent
+    extra = 1
+    fields = ('supplier_product', 'quantity', 'substage_template')
+
 
 @admin.register(OurProduct)
 class OurProductAdmin(admin.ModelAdmin):
-    list_display = ('name', 'sale_price', 'min_quantity', 'production_days')
+    list_display = ('name', 'cost_display', 'min_quantity', 'production_days')
     search_fields = ('name',)
+    inlines = [ProductComponentInline]
+    
+    def cost_display(self, obj):
+        return f"{obj.cost} ₽"
+    cost_display.short_description = "Себестоимость"
+
 
 @admin.register(SupplierProduct)
 class SupplierProductAdmin(admin.ModelAdmin):
-    # Заменили contractor_name на contractor
-    list_display = ('name', 'contractor', 'product_type', 'unit_price')
-    list_filter = ('product_type', 'contractor')
-    # Добавили поиск и по названию подрядчика через двойное подчеркивание
-    search_fields = ('name', 'contractor__name') 
+    list_display = ('name', 'contractor', 'product_type', 'unit_price', 'lead_time_days')
+    list_filter = ('contractor', 'product_type')
+    search_fields = ('name',)
