@@ -1,72 +1,52 @@
 # products/models.py
+from decimal import Decimal
+
 from django.db import models
 from partners.models import Contractor
 
-# МЫ НЕ ИМПОРТИРУЕМ модели из orders здесь! Это ломает цикл.
+# Модели из orders здесь НЕ импортируем (получится циклический импорт).
+# Ссылаемся на них строкой: 'orders.SubstageTemplate'.
 
 
 class OurProduct(models.Model):
-    """Наши товары (то, что мы продаем клиентам)"""
+    """Наши товары (то, что мы продаём клиентам)"""
     name = models.CharField(max_length=200, verbose_name="Название товара")
     sale_price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0, 
-        verbose_name="Цена продажи без НДС (базовая)"
+        max_digits=10, decimal_places=2, default=0,
+        verbose_name="Базовая цена продажи без НДС (справочно)",
     )
-    min_quantity = models.IntegerField(default=1, verbose_name="Минимальный тираж (шт.)")
-    production_days = models.IntegerField(default=1, verbose_name="Срок производства (дней)")
-    auto_calculate_price = models.BooleanField(
-        default=True, 
-        verbose_name="Автоматически считать базовую цену по спецификации"
-    )
+    min_quantity = models.PositiveIntegerField(default=1, verbose_name="Минимальный тираж (шт.)")
+    production_days = models.PositiveIntegerField(default=1, verbose_name="Срок производства (дней)")
 
     def __str__(self):
         return self.name
 
     @property
     def min_cost(self):
-        """Минимальная себестоимость на основе компонентов спецификации"""
-        components = self.components.select_related('supplier_product').all()
-        if not components.exists():
-            return 0
-        
-        total = 0
-        for comp in components:
-            total += comp.quantity * comp.supplier_product.unit_price
-        return total
-
-    def save(self, *args, **kwargs):
-        # Автоматически считаем базовую цену, если включена опция
-        if self.auto_calculate_price:
-            self.sale_price = self.min_cost
-        
-        super().save(*args, **kwargs)
+        """Себестоимость 1 шт. по спецификации (только для показа, в базе не хранится)."""
+        if not self.pk:
+            return Decimal("0")
+        components = self.components.select_related("supplier_product")
+        return sum((c.quantity * c.supplier_product.unit_price for c in components), Decimal("0"))
 
     class Meta:
         verbose_name = "Наш товар"
         verbose_name_plural = "Наши товары"
 
+
 class SupplierProduct(models.Model):
     """Товары и услуги поставщиков"""
     contractor = models.ForeignKey(
-        Contractor, 
-        on_delete=models.PROTECT, 
-        null=True, 
-        blank=True, 
-        verbose_name="Поставщик"
+        Contractor, on_delete=models.PROTECT, null=True, blank=True, verbose_name="Поставщик"
     )
     name = models.CharField(max_length=200, verbose_name="Название товара/услуги")
     product_type = models.CharField(max_length=100, blank=True, verbose_name="Тип (Одежда, Печать, Упаковка)")
     color = models.CharField(max_length=50, blank=True, verbose_name="Цвет")
     size = models.CharField(max_length=50, blank=True, verbose_name="Размер")
     unit_price = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=0, 
-        verbose_name="Цена закупки без НДС"
+        max_digits=10, decimal_places=2, default=0, verbose_name="Цена закупки без НДС"
     )
-    lead_time_days = models.IntegerField(default=1, verbose_name="Срок поставки (дней)")
+    lead_time_days = models.PositiveIntegerField(default=1, verbose_name="Срок поставки (дней)")
 
     def __str__(self):
         return f"{self.name} ({self.contractor})"
@@ -77,39 +57,25 @@ class SupplierProduct(models.Model):
 
 
 class ProductComponent(models.Model):
-    """Состав нашего товара (спецификация)"""
+    """Состав нашего товара (спецификация). При создании позиции заказа копируется в заказ."""
     our_product = models.ForeignKey(
-        OurProduct, 
-        on_delete=models.CASCADE, 
-        related_name='components',
-        verbose_name="Наш товар"
+        OurProduct, on_delete=models.CASCADE, related_name="components", verbose_name="Наш товар"
     )
     supplier_product = models.ForeignKey(
-        SupplierProduct, 
-        on_delete=models.PROTECT,
-        verbose_name="Товар/услуга поставщика"
+        SupplierProduct, on_delete=models.PROTECT, verbose_name="Товар/услуга поставщика"
     )
     quantity = models.DecimalField(
-        max_digits=10, 
-        decimal_places=2, 
-        default=1,
-        verbose_name="Количество на 1 шт. нашего товара"
+        max_digits=10, decimal_places=2, default=1,
+        verbose_name="Количество на 1 шт. нашего товара",
     )
-    
-    # !!! ГЛАВНОЕ ИСПРАВЛЕНИЕ !!!
-    # Используем строку 'app_name.ModelName' вместо прямого импорта.
-    # Это полностью устраняет циклический импорт.
     substage_template = models.ForeignKey(
-    'orders.SubstageTemplate',  # или 'workflow.SubstageTemplate'
-    on_delete=models.SET_NULL,
-    null=True,
-    blank=True,
-    verbose_name="Шаблон подэтапа (когда оплачивать)"
-)
-    
+        "orders.SubstageTemplate", on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name="Шаблон подэтапа (когда оплачивать)",
+    )
+
     def __str__(self):
         return f"{self.supplier_product.name} для {self.our_product.name}"
-    
+
     class Meta:
         verbose_name = "Компонент товара"
         verbose_name_plural = "Компоненты товаров"

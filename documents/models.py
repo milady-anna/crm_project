@@ -29,14 +29,6 @@ class DocumentTemplate(models.Model):
         verbose_name="Тип заказа (пусто = универсальный)"
     )
     
-    substage_template = models.ForeignKey(
-        'workflow.SubstageTemplate',
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        verbose_name="Подэтап (пусто = в любой момент)"
-    )
-    
     url = models.URLField(verbose_name="Ссылка на файл в облаке")
     
     description = models.TextField(blank=True, verbose_name="Описание / Подсказка")

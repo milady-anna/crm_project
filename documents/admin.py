@@ -5,6 +5,6 @@ from .models import DocumentTemplate
 
 @admin.register(DocumentTemplate)
 class DocumentTemplateAdmin(admin.ModelAdmin):
-    list_display = ('name', 'doc_type', 'order_type', 'substage_template', 'url')
+    list_display = ('name', 'doc_type', 'order_type', 'url')
     list_filter = ('doc_type', 'order_type')
     search_fields = ('name', 'description')

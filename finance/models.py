@@ -1,7 +1,8 @@
 # finance/models.py
+from decimal import Decimal
+
 from django.db import models
-from django.db.models import Sum, Q, Value, DecimalField
-from django.db.models.functions import Coalesce
+from django.db.models import Sum
 from orders.models import Order, Substage, OrderItem
 from partners.models import Contractor
 from core.models import TimeStampedModel # <-- Импортируем наши даты
@@ -21,9 +22,13 @@ class BudgetItem(models.Model):
         verbose_name="Позиция товара"
     )
     
-    # НОВОЕ ПОЛЕ для связи с компонентом (чтобы сервис не создавал дубликаты)
-    source_component = models.ForeignKey('products.ProductComponent', null=True, blank=True, on_delete=models.SET_NULL, verbose_name="Источник (компонент)")
-    
+    # Откуда взялся платёж: компонент позиции заказа (снимок спецификации).
+    # По паре (order_item, item_component) сервис находит уже созданный платёж и не плодит дубли.
+    item_component = models.ForeignKey(
+        'orders.OrderItemComponent', null=True, blank=True, on_delete=models.CASCADE,
+        related_name='budget_items', verbose_name="Источник (компонент позиции)",
+    )
+
     substage = models.ForeignKey(Substage, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Подэтап")
     component_name = models.CharField(max_length=200, verbose_name="Название компонента")
     contractor = models.ForeignKey(Contractor, on_delete=models.PROTECT, null=True, blank=True, verbose_name="Подрядчик")
@@ -37,9 +42,10 @@ class BudgetItem(models.Model):
     @property
     def payment_state(self):
         """Автоматически считает, сколько оплачено, на основе реальных транзакций"""
-        paid_amount = self.transactions.filter(status='paid').aggregate(
-            total=Coalesce(Sum('amount_fact'), Value(0))
-        )['total']
+        paid_amount = (
+            self.transactions.filter(status='paid').aggregate(total=Sum('amount_fact'))['total']
+            or Decimal('0')
+        )
         
         if paid_amount == 0:
             return "Не оплачено"

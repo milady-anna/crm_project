@@ -53,7 +53,7 @@
                 {% for order in orders %}
                 <tr class="{% if order.deadline_plan < today and not order.current_stage.is_final %}table-danger{% endif %}">
                     <td class="fw-bold">{{ order.number }}</td>
-                    <td>{{ order.client.short_name|default:order.client.full_name }}</td>
+                    <td>{{ order.client }}</td>
                     <td><span class="badge bg-info text-dark">{{ order.order_type.name }}</span></td>
                     <td>{{ order.current_stage.name|default:"Не назначен" }}</td>
                     <td>
@@ -62,7 +62,7 @@
                             <i class="bi bi-exclamation-triangle-fill text-danger" title="Просрочено!"></i>
                         {% endif %}
                     </td>
-                    <td>{{ order.contract_amount|default:"0" }} ₽</td>
+                    <td>{{ order.contract_amount_calculated }} ₽</td>
                     <td>
                         <a href="{% url 'admin:orders_order_change' order.id %}" class="btn btn-sm btn-outline-primary">
                             <i class="bi bi-pencil"></i>

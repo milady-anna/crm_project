@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('orders', '0003_alter_order_current_stage'),
-        ('workflow', '0001_initial'),
+        ('orders', '0001_initial'),
     ]
 
     operations = [
@@ -23,7 +23,7 @@ class Migration(migrations.Migration):
                 ('url', models.URLField(verbose_name='Ссылка на файл в облаке')),
                 ('description', models.TextField(blank=True, verbose_name='Описание / Подсказка')),
                 ('order_type', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='orders.ordertype', verbose_name='Тип заказа (пусто = универсальный)')),
-                ('substage_template', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='workflow.substagetemplate', verbose_name='Подэтап (пусто = в любой момент)')),
+                ('substage_template', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='orders.substagetemplate', verbose_name='Подэтап (пусто = в любой момент)')),
             ],
             options={
                 'verbose_name': 'Шаблон документа',

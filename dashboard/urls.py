@@ -1,9 +1,12 @@
 # dashboard/urls.py
 from django.urls import path
+from django.views.generic import RedirectView
+
 from . import views
 
-app_name = 'dashboard'
+app_name = "dashboard"
 
 urlpatterns = [
-    path('orders/', views.OrderListView.as_view(), name='order_list'),
+    path("", RedirectView.as_view(pattern_name="dashboard:order_list"), name="home"),
+    path("orders/", views.OrderListView.as_view(), name="order_list"),
 ]

@@ -7,10 +7,11 @@ class CustomUser(AbstractUser):
     Добавляем только то, чего ему не хватает.
     """
     phone = models.CharField(
-        max_length=20, 
-        blank=True, 
-        verbose_name="Номер телефона"
-    )
+            max_length=20, 
+            blank=True, 
+            verbose_name="Номер телефона"
+        )
+    
     
     # Указываем, как красиво отображать пользователя в админке
     def __str__(self):
