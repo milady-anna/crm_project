@@ -5,6 +5,7 @@ from .models import OurProduct, ProductComponent, SupplierProduct
 
 class ProductComponentInline(admin.TabularInline):
     """Спецификацию добавляем прямо на странице товара"""
+
     model = ProductComponent
     extra = 1
     fields = ("supplier_product", "quantity", "substage_template")
@@ -12,9 +13,15 @@ class ProductComponentInline(admin.TabularInline):
 
 @admin.register(OurProduct)
 class OurProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "sale_price", "cost_display", "min_quantity", "production_days")
+    list_display = ("name", "cost_display", "min_quantity", "production_days")
     search_fields = ("name",)
     inlines = [ProductComponentInline]
+
+    def cost_display(self, obj):
+        """Отображает себестоимость в списке товаров"""
+        return f"{obj.cost} ₽"
+
+    cost_display.short_description = "Себестоимость"
 
     @admin.display(description="Себестоимость")
     def cost_display(self, obj):
@@ -23,6 +30,12 @@ class OurProductAdmin(admin.ModelAdmin):
 
 @admin.register(SupplierProduct)
 class SupplierProductAdmin(admin.ModelAdmin):
-    list_display = ("name", "contractor", "product_type", "unit_price", "lead_time_days")
+    list_display = (
+        "name",
+        "contractor",
+        "product_type",
+        "unit_price",
+        "lead_time_days",
+    )
     list_filter = ("contractor", "product_type")
     search_fields = ("name", "contractor__name")

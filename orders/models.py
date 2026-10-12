@@ -7,13 +7,14 @@ from django.utils import timezone
 from partners.models import Client
 from products.models import OurProduct, ProductComponent
 
-
 # ============================================
 # СПРАВОЧНИКИ (их заполняет руководитель в админке)
 # ============================================
 
+
 class Stage(models.Model):
     """Этап заказа. Один этап = одна колонка канбан-доски."""
+
     name = models.CharField(max_length=100, verbose_name="Название этапа")
     order_index = models.IntegerField(default=0, verbose_name="Порядок отображения")
     is_final = models.BooleanField(default=False, verbose_name="Финальный этап")
@@ -29,9 +30,15 @@ class Stage(models.Model):
 
 class SubstageTemplate(models.Model):
     """Шаблон подэтапа: название, подсказка и этап, к которому он относится."""
+
     name = models.CharField(max_length=200, verbose_name="Название задачи")
+    default_duration_days = models.PositiveIntegerField(
+        default=1, verbose_name="Длительность по умолчанию (дней)"
+    )
     hint = models.TextField(blank=True, verbose_name="Подсказка менеджеру")
-    default_stage = models.ForeignKey(Stage, on_delete=models.PROTECT, verbose_name="Этап")
+    default_stage = models.ForeignKey(
+        Stage, on_delete=models.PROTECT, verbose_name="Этап"
+    )
 
     def __str__(self):
         return self.name
@@ -44,10 +51,14 @@ class SubstageTemplate(models.Model):
 
 class OrderType(models.Model):
     """Тип заказа (Болванка, Россия, Китай...). Определяет набор подэтапов."""
+
     name = models.CharField(max_length=100, verbose_name="Название типа")
     description = models.TextField(blank=True, verbose_name="Описание")
     templates = models.ManyToManyField(
-        SubstageTemplate, through="OrderTypeTemplate", blank=True, verbose_name="Базовые задачи"
+        SubstageTemplate,
+        through="OrderTypeTemplate",
+        blank=True,
+        verbose_name="Базовые задачи",
     )
 
     def __str__(self):
@@ -60,9 +71,16 @@ class OrderType(models.Model):
 
 class OrderTypeTemplate(models.Model):
     """Какие подэтапы входят в тип заказа, в каком порядке и на сколько дней."""
-    order_type = models.ForeignKey(OrderType, on_delete=models.CASCADE, verbose_name="Тип заказа")
-    template = models.ForeignKey(SubstageTemplate, on_delete=models.CASCADE, verbose_name="Шаблон задачи")
-    duration_days = models.PositiveIntegerField(default=1, verbose_name="Длительность (дней)")
+
+    order_type = models.ForeignKey(
+        OrderType, on_delete=models.CASCADE, verbose_name="Тип заказа"
+    )
+    template = models.ForeignKey(
+        SubstageTemplate, on_delete=models.CASCADE, verbose_name="Шаблон задачи"
+    )
+    duration_days = models.PositiveIntegerField(
+        default=1, verbose_name="Длительность (дней)"
+    )
     order_index = models.PositiveIntegerField(default=0, verbose_name="Порядок")
 
     def __str__(self):
@@ -73,7 +91,9 @@ class OrderTypeTemplate(models.Model):
         verbose_name_plural = "Задачи типа заказа"
         ordering = ["order_index", "id"]
         constraints = [
-            models.UniqueConstraint(fields=["order_type", "template"], name="unique_template_per_order_type")
+            models.UniqueConstraint(
+                fields=["order_type", "template"], name="unique_template_per_order_type"
+            )
         ]
 
 
@@ -81,23 +101,126 @@ class OrderTypeTemplate(models.Model):
 # РАБОЧИЕ ТАБЛИЦЫ
 # ============================================
 
+
 class Order(models.Model):
     number = models.CharField(max_length=50, unique=True, verbose_name="Номер заказа")
-    client = models.ForeignKey(Client, on_delete=models.PROTECT, verbose_name="Заказчик")
-    manager = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name="Менеджер")
-    order_type = models.ForeignKey(OrderType, on_delete=models.PROTECT, verbose_name="Тип заказа")
+    client = models.ForeignKey(
+        Client, on_delete=models.PROTECT, verbose_name="Заказчик"
+    )
+    manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name="Менеджер"
+    )
+    order_type = models.ForeignKey(
+        OrderType, on_delete=models.PROTECT, verbose_name="Тип заказа"
+    )
     current_stage = models.ForeignKey(
-        Stage, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Текущий этап (авто)"
+        Stage,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Текущий этап (авто)",
     )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
     deadline_plan = models.DateField(verbose_name="Плановый дедлайн")
-    deadline_fact = models.DateField(null=True, blank=True, verbose_name="Фактическая дата завершения")
+    deadline_fact = models.DateField(
+        null=True, blank=True, verbose_name="Фактическая дата завершения"
+    )
 
-    contract_number = models.CharField(max_length=100, blank=True, verbose_name="Номер договора")
+    contract_number = models.CharField(
+        max_length=100, blank=True, verbose_name="Номер договора"
+    )
+    brandbook_url = models.URLField(
+        max_length=500, blank=True, verbose_name="Ссылка на брендбук для этого заказа"
+    )
+    contract_url = models.URLField(
+        max_length=500, blank=True, verbose_name="Ссылка на договор (облако)"
+    )
+    kp_url = models.URLField(
+        max_length=500, blank=True, verbose_name="Ссылка на КП (облако)"
+    )
+    prepayment_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0.00,
+        verbose_name="Процент предоплаты (%)",
+    )
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+
+        # Автозаполнение брендбука из клиента
+        if is_new and not self.brandbook_url:
+            self.brandbook_url = self.client.brandbook_url
+
+        super().save(*args, **kwargs)
+
+        # Создание подэтапов только при первом сохранении
+        if is_new:
+            from .services import create_substages_for_order
+
+            create_substages_for_order(self)
 
     def __str__(self):
         return f"Заказ {self.number} ({self.client})"
+
+    @property
+    def progress_percent(self):
+        """Прогресс заказа в % на основе веса (длительности) выполненных подэтапов"""
+        substages = self.substages.all()
+        if not substages.exists():
+            return 0
+
+        total_weight = sum(s.duration_days for s in substages)
+        if total_weight == 0:
+            return 0
+
+        completed_weight = sum(
+            s.duration_days for s in substages if s.status == "completed"
+        )
+        return round((completed_weight / total_weight) * 100)
+
+    @property
+    def is_completed(self):
+        """Заказ завершён, если все подэтапы выполнены"""
+        if not self.substages.exists():
+            return False
+        return all(s.status == "completed" for s in self.substages.all())
+
+    @property
+    def has_overdue_substages(self):
+        """Есть ли просроченные подэтапы"""
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        return self.substages.filter(
+            status__in=["not_started", "in_progress"], deadline__lt=today
+        ).exists()
+
+    @property
+    def nearest_deadline(self):
+        """Ближайший дедлайн среди незавершённых подэтапов"""
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        nearest = (
+            self.substages.filter(status__in=["not_started", "in_progress"])
+            .order_by("deadline")
+            .first()
+        )
+        return nearest.deadline if nearest else today
+
+    @property
+    def total_expenses(self):
+        """Сумма расходов по заказу"""
+        from finance.models import BudgetItem
+
+        return (
+            BudgetItem.objects.filter(order=self, flow_type="expense").aggregate(
+                total=models.Sum("amount_plan")
+            )["total"]
+            or 0
+        )
 
     class Meta:
         verbose_name = "Заказ"
@@ -128,7 +251,9 @@ class Order(models.Model):
             new_stage_id = final.pk if final else self.current_stage_id
             new_fact = self.deadline_fact or timezone.localdate()
 
-        Order.objects.filter(pk=self.pk).update(current_stage_id=new_stage_id, deadline_fact=new_fact)
+        Order.objects.filter(pk=self.pk).update(
+            current_stage_id=new_stage_id, deadline_fact=new_fact
+        )
         self.current_stage_id = new_stage_id
         self.deadline_fact = new_fact
 
@@ -136,21 +261,43 @@ class Order(models.Model):
 class Substage(models.Model):
     """Подэтап конкретного заказа. Это КОПИЯ шаблона: её можно менять, удалять
     и добавлять свои - шаблон и другие заказы не затрагиваются."""
-    STATUS_CHOICES = [("not_started", "Не начата"), ("in_progress", "В работе"), ("completed", "Выполнена")]
 
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="substages", verbose_name="Заказ")
+    STATUS_CHOICES = [
+        ("not_started", "Не начата"),
+        ("in_progress", "В работе"),
+        ("completed", "Выполнена"),
+    ]
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="substages", verbose_name="Заказ"
+    )
     template = models.ForeignKey(
-        SubstageTemplate, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Шаблон"
+        SubstageTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Шаблон",
     )
     stage = models.ForeignKey(Stage, on_delete=models.PROTECT, verbose_name="Этап")
 
     name = models.CharField(max_length=200, verbose_name="Название задачи")
     hint = models.TextField(blank=True, verbose_name="Подсказка")
-    duration_days = models.PositiveIntegerField(default=1, verbose_name="Длительность (дней)")
+    duration_days = models.PositiveIntegerField(
+        default=1, verbose_name="Длительность (дней)"
+    )
     deadline = models.DateField(null=True, blank=True, verbose_name="Дедлайн")
-    completed_date = models.DateField(null=True, blank=True, verbose_name="Дата выполнения")
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="not_started", verbose_name="Статус")
-    index_in_stage = models.PositiveIntegerField(default=0, verbose_name="Номер внутри этапа")
+    completed_date = models.DateField(
+        null=True, blank=True, verbose_name="Дата выполнения"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="not_started",
+        verbose_name="Статус",
+    )
+    index_in_stage = models.PositiveIntegerField(
+        default=0, verbose_name="Номер внутри этапа"
+    )
 
     def __str__(self):
         return f"{self.stage.name} #{self.index_in_stage}: {self.name}"
@@ -161,11 +308,18 @@ class Substage(models.Model):
         verbose_name_plural = "Подэтапы в заказе"
 
     def save(self, *args, **kwargs):
+        # Если подэтап создан из шаблона, копируем имя и подсказку, чтобы они были актуальны
+        if self.template and not self.name:
+            self.name = self.template.name
+        if self.template and not self.hint:
+            self.hint = self.template.hint
+
         if self.status == "completed":
             if not self.completed_date:
                 self.completed_date = timezone.localdate()
         else:
             self.completed_date = None
+
         super().save(*args, **kwargs)
         self.order.update_current_stage()
 
@@ -177,21 +331,67 @@ class Substage(models.Model):
 
 class OrderItem(models.Model):
     """Товар в заказе. Цена = себестоимость по спецификации заказа + наценка."""
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items", verbose_name="Заказ")
-    product = models.ForeignKey(OurProduct, on_delete=models.PROTECT, verbose_name="Товар")
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="items", verbose_name="Заказ"
+    )
+    product = models.ForeignKey(
+        OurProduct, on_delete=models.PROTECT, verbose_name="Товар"
+    )
     quantity = models.PositiveIntegerField(default=1, verbose_name="Количество")
     markup_percent = models.DecimalField(
-        max_digits=5, decimal_places=2, default=Decimal("30.00"), verbose_name="Наценка (%)"
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("30.00"),
+        verbose_name="Наценка (%)",
+    )
+    tax_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=20.00,
+        verbose_name="Налоговая ставка (%)",
+        help_text="Например, 20 для НДС. Можно будет брать из товара в будущем.",
     )
     price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0, verbose_name="Цена за единицу (итог)",
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="Цена за единицу (итог)",
         help_text="Если у товара есть спецификация - считается сама (себестоимость + наценка). "
-                  "Если спецификации нет - вводится вручную.",
+        "Если спецификации нет - вводится вручную.",
     )
     cost_value = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0, verbose_name="Себестоимость (рассчитана)"
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="Себестоимость (рассчитана)",
     )
-    variant = models.CharField(max_length=100, blank=True, verbose_name="Вариант (цвет/размер)")
+    tax_rate = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=20.00,
+        verbose_name="Налоговая ставка (%)",
+        help_text="Например, 20 для НДС. В будущем будет браться из товара.",
+    )
+
+    @property
+    def tax_amount(self):
+        """Сумма налога в позиции"""
+        return round(self.total * (self.tax_rate / 100), 2)
+
+    @property
+    def net_markup_amount(self):
+        """Чистая сумма наценки (без учета налога)"""
+        return round(self.total - (self.quantity * self.cost_value), 2)
+
+    @property
+    def markup_percent_effective(self):
+        """Фактическая наценка в процентах"""
+        if self.cost_value == 0:
+            return 0
+        return round(
+            (self.net_markup_amount / (self.quantity * self.cost_value)) * 100, 2
+        )
 
     def __str__(self):
         return f"{self.product.name} × {self.quantity}"
@@ -217,21 +417,26 @@ class OrderItem(models.Model):
     def refresh_prices(self):
         """Пересчитать и записать цены (без повторного вызова save())."""
         self.recalculate()
-        OrderItem.objects.filter(pk=self.pk).update(cost_value=self.cost_value, price=self.price)
+        OrderItem.objects.filter(pk=self.pk).update(
+            cost_value=self.cost_value, price=self.price
+        )
 
     def copy_components_from_product(self):
         """Копирует спецификацию товара в позицию (снимок цен на момент заказа)."""
-        OrderItemComponent.objects.bulk_create([
-            OrderItemComponent(
-                order_item=self,
-                supplier_product=comp.supplier_product,
-                quantity=comp.quantity,
-                unit_price=comp.supplier_product.unit_price,
-                substage_template=comp.substage_template,
-            )
-            for comp in ProductComponent.objects.filter(our_product=self.product)
-            .select_related("supplier_product")
-        ])
+        OrderItemComponent.objects.bulk_create(
+            [
+                OrderItemComponent(
+                    order_item=self,
+                    supplier_product=comp.supplier_product,
+                    quantity=comp.quantity,
+                    unit_price=comp.supplier_product.unit_price,
+                    substage_template=comp.substage_template,
+                )
+                for comp in ProductComponent.objects.filter(
+                    our_product=self.product
+                ).select_related("supplier_product")
+            ]
+        )
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None
@@ -245,20 +450,33 @@ class OrderItem(models.Model):
 
 class OrderItemComponent(models.Model):
     """Состав конкретной позиции заказа (снимок спецификации)"""
+
     order_item = models.ForeignKey(
-        OrderItem, on_delete=models.CASCADE, related_name="components", verbose_name="Позиция заказа"
+        OrderItem,
+        on_delete=models.CASCADE,
+        related_name="components",
+        verbose_name="Позиция заказа",
     )
     supplier_product = models.ForeignKey(
-        "products.SupplierProduct", on_delete=models.PROTECT, verbose_name="Товар/услуга поставщика"
+        "products.SupplierProduct",
+        on_delete=models.PROTECT,
+        verbose_name="Товар/услуга поставщика",
     )
     quantity = models.DecimalField(
         max_digits=10, decimal_places=2, default=1, verbose_name="Количество на 1 шт."
     )
     unit_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0, verbose_name="Цена за единицу (на момент заказа)"
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+        verbose_name="Цена за единицу (на момент заказа)",
     )
     substage_template = models.ForeignKey(
-        SubstageTemplate, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Шаблон подэтапа"
+        SubstageTemplate,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Шаблон подэтапа",
     )
 
     def __str__(self):
@@ -271,12 +489,17 @@ class OrderItemComponent(models.Model):
 
 class SubstageTemplateDocument(models.Model):
     """Какие шаблоны документов предлагать на каком подэтапе."""
+
     substage_template = models.ForeignKey(
-        SubstageTemplate, on_delete=models.CASCADE, related_name="template_documents",
+        SubstageTemplate,
+        on_delete=models.CASCADE,
+        related_name="template_documents",
         verbose_name="Шаблон подэтапа",
     )
     document_template = models.ForeignKey(
-        "documents.DocumentTemplate", on_delete=models.CASCADE, verbose_name="Шаблон документа"
+        "documents.DocumentTemplate",
+        on_delete=models.CASCADE,
+        verbose_name="Шаблон документа",
     )
 
     def __str__(self):
@@ -286,3 +509,24 @@ class SubstageTemplateDocument(models.Model):
         verbose_name = "Документ шаблона подэтапа"
         verbose_name_plural = "Документы шаблона подэтапа"
         unique_together = ("substage_template", "document_template")
+
+
+class OrderComment(models.Model):
+    """Внутренние комментарии к заказу"""
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name="comments", verbose_name="Заказ"
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, verbose_name="Автор"
+    )
+    text = models.TextField(verbose_name="Текст комментария")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата и время")
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Комментарий к заказу"
+        verbose_name_plural = "Комментарии к заказу"
+
+    def __str__(self):
+        return f"Комментарий к {self.order.number} от {self.author}"

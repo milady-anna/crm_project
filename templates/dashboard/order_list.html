@@ -1,100 +1,234 @@
-<!-- templates/dashboard/order_list.html -->
-{% extends 'base.html' %}
+{% extends "base.html" %}
+{% load rating_tags %}
 
 {% block title %}Список заказов{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">Список заказов</h1>
-    <a href="{% url 'admin:orders_order_add' %}" class="btn btn-success">
-        <i class="bi bi-plus-lg"></i> Новый заказ
-    </a>
-</div>
-
-<!-- Фильтры и поиск -->
-<form method="get" class="row g-3 mb-4">
-    <div class="col-md-4">
-        <input type="text" name="search" class="form-control" placeholder="Поиск по номеру или клиенту..." value="{{ request.GET.search }}">
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Список заказов</h2>
+        <a href="{% url 'admin:orders_order_add' %}" class="btn btn-primary">
+            + Новый заказ
+        </a>
     </div>
-    <div class="col-md-3">
-        <select name="stage" class="form-select">
-            <option value="">Все этапы</option>
-            {% for stage in stages %}
-                <option value="{{ stage.id }}" {% if request.GET.stage == stage.id|stringformat:"s" %}selected{% endif %}>
-                    {{ stage.name }}
-                </option>
+
+    <!-- Фильтры -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Поиск по номеру или клиенту..." 
+                           value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-3">
+                    <select name="stage" class="form-select">
+                        <option value="">Все этапы</option>
+                        {% for stage in stages %}
+                            <option value="{{ stage.pk }}" 
+                                    {% if request.GET.stage == stage.pk|stringformat:"d" %}selected{% endif %}>
+                                {{ stage.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="show_completed" value="1" 
+                               id="showCompleted" {% if show_completed == "1" %}checked{% endif %}>
+                        <label class="form-check-label" for="showCompleted">
+                            Показать завершённые
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">Применить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Карточки заказов -->
+    <div class="row g-3">
+        {% for order in orders %}
+        <div class="col-12">
+            <div class="card {% if order.is_completed %}bg-light{% endif %} {% if order.has_overdue_substages %}border-danger{% endif %}" 
+                 style="border-left: 5px solid {{ order.nearest_deadline|deadline_color }};">
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Левая часть -->
+                        <div class="col-md-6">
+                            <!-- Заголовок: Заказ #N + этап + для + клиент -->
+                            <div class="d-flex align-items-center flex-wrap mb-3">
+                                <h4 class="mb-0 {% if order.has_overdue_substages %}text-danger{% endif %} fw-bold me-2">
+                                    <a href="{% url 'dashboard:order_detail' order.pk %}" class="text-decoration-none {% if order.has_overdue_substages %}text-danger{% else %}text-dark{% endif %}">
+                                        Заказ #{{ order.number }}
+                                    </a>
+                                </h4>
+                                <span class="badge bg-secondary me-2 fs-5 px-3 py-2">
+                                    {{ order.current_stage.name|default:"Не назначен" }}
+                                </span>
+                                <span class="text-muted me-2 fs-5">для</span>
+                                <a href="{% url 'admin:partners_client_change' order.client.pk %}" 
+                                   class="text-decoration-none fw-bold fs-5">
+                                    {{ order.client.name }}
+                                </a>
+                            </div>
+
+                            <!-- Ближайший подэтап -->
+                            {% if order.nearest_substage %}
+                            <div class="mb-2">
+                                <button class="btn btn-sm btn-link p-0 text-decoration-none d-flex align-items-center"
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#substages-{{ order.pk }}"
+                                        aria-expanded="false">
+                                    <span class="{% if order.nearest_substage.deadline < today %}text-danger fw-bold{% elif order.nearest_substage.deadline == today %}text-warning fw-bold{% else %}text-dark{% endif %}">
+                                        {{ order.nearest_substage.name }}
+                                    </span>
+                                    <span class="text-muted ms-2 me-1">до</span>
+                                    <span class="{% if order.nearest_substage.deadline < today %}text-danger{% elif order.nearest_substage.deadline == today %}text-warning{% else %}text-success{% endif %}">
+                                        {{ order.nearest_substage.deadline|date:"d.m.Y" }}
+                                    </span>
+                                    <i class="bi bi-chevron-down ms-2"></i>
+                                </button>
+
+                                <!-- Разворачиваемый список всех подэтапов -->
+                                <div class="collapse mt-2" id="substages-{{ order.pk }}">
+                                    <ul class="list-unstyled mb-0 small border-start ps-3">
+                                        {% for sub in order.substages.all %}
+                                        <li class="py-1 {% if sub.status == 'completed' %}text-success text-decoration-line-through{% elif sub.deadline < today and sub.status != 'completed' %}text-danger{% endif %}">
+                                            <span class="fw-semibold">{{ sub.name }}</span>
+                                            <span class="text-muted ms-2">— {{ sub.deadline|date:"d.m.Y" }}</span>
+                                            {% if sub.status == 'completed' %}
+                                                <span class="badge bg-success ms-1">✓</span>
+                                            {% elif sub.status == 'in_progress' %}
+                                                <span class="badge bg-primary ms-1">В работе</span>
+                                            {% endif %}
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="mb-2 text-muted small">
+                                <i class="bi bi-clock"></i> Подэтапы не назначены
+                            </div>
+                            {% endif %}
+
+                            <!-- Товары: первый всегда виден, остальные под кнопкой -->
+                            {% if order.items.exists %}
+                                {% with order.items.all as items_list %}
+                                {% with items_list|length as items_count %}
+                                {% with items_list.0 as first_item %}
+                                    <!-- Первый товар всегда виден -->
+                                    <div class="d-flex justify-content-between align-items-center py-1 border-bottom small">
+                                        <span>
+                                            <span class="fw-semibold">{{ first_item.product.name }}</span>
+                                            {% if first_item.variant %}
+                                                <span class="text-muted">({{ first_item.variant }})</span>
+                                            {% endif %}
+                                            <span class="text-muted ms-2">× {{ first_item.quantity }}</span>
+                                        </span>
+                                        <span class="text-success fw-semibold">{{ first_item.total|floatformat:0 }} ₽</span>
+                                    </div>
+
+                                    <!-- Если товаров больше одного — кнопка разворачивания -->
+                                    {% if items_count > 1 %}
+                                        <button class="btn btn-sm btn-link p-0 text-decoration-none mt-1" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#items-{{ order.pk }}"
+                                                aria-expanded="false">
+                                            <i class="bi bi-chevron-down"></i> 
+                                            Ещё {{ items_count|add:"-1" }} товар(ов)
+                                        </button>
+                                        <div class="collapse mt-2" id="items-{{ order.pk }}">
+                                            <ul class="list-unstyled mb-0 small">
+                                                {% for item in items_list %}
+                                                    {% if forloop.counter > 1 %}
+                                                    <li class="py-1 border-bottom d-flex justify-content-between">
+                                                        <span>
+                                                            <span class="fw-semibold">{{ item.product.name }}</span>
+                                                            {% if item.variant %}
+                                                                <span class="text-muted">({{ item.variant }})</span>
+                                                            {% endif %}
+                                                            <span class="text-muted ms-2">× {{ item.quantity }}</span>
+                                                        </span>
+                                                        <span class="text-success">{{ item.total|floatformat:0 }} ₽</span>
+                                                    </li>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
+                                {% endwith %}
+                                {% endwith %}
+                            {% endif %}
+                        </div>
+
+                        <!-- Правая часть: два столбца (даты | деньги), выровнены по правому краю -->
+                        <div class="col-md-6">
+                            <div class="row text-end">
+                                <!-- Столбец с датами -->
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Плановая дата</div>
+                                        <div class="fw-semibold">{{ order.deadline_plan|date:"d.m.Y" }}</div>
+                                    </div>
+                                    <div class="mb-0">
+                                        <div class="text-muted small">Фактическая дата</div>
+                                        <div class="fw-semibold">{{ order.deadline_fact|date:"d.m.Y"|default:"—" }}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Столбец с деньгами -->
+                                <div class="col-6">
+                                    <div class="mb-3">
+                                        <div class="text-muted small">Сумма по договору</div>
+                                        <div class="fs-4 fw-bold text-primary">{{ order.contract_amount_calculated|floatformat:0 }} ₽</div>
+                                    </div>
+                                    <div class="mb-0">
+                                        <div class="text-muted small">Сумма расходов</div>
+                                        <div class="fs-5 text-danger">{{ order.total_expenses|floatformat:0 }} ₽</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox" style="font-size: 48px;"></i>
+                <p class="mt-2">Заказы не найдены</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}&show_completed={{ show_completed }}">←</a>
+                </li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}&show_completed={{ show_completed }}">{{ num }}</a>
+                </li>
             {% endfor %}
-        </select>
-    </div>
-    <div class="col-md-2">
-        <button type="submit" class="btn btn-primary w-100">Применить</button>
-    </div>
-    <div class="col-md-2">
-        <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary w-100">Сбросить</a>
-    </div>
-</form>
-
-<!-- Таблица заказов -->
-<div class="card shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead class="table-light">
-                <tr>
-                    <th>№ Заказа</th>
-                    <th>Клиент</th>
-                    <th>Тип</th>
-                    <th>Текущий этап</th>
-                    <th>Дедлайн</th>
-                    <th>Сумма</th>
-                    <th>Действия</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for order in orders %}
-                <tr class="{% if order.deadline_plan < today and not order.current_stage.is_final %}table-danger{% endif %}">
-                    <td class="fw-bold">{{ order.number }}</td>
-                    <td>{{ order.client }}</td>
-                    <td><span class="badge bg-info text-dark">{{ order.order_type.name }}</span></td>
-                    <td>{{ order.current_stage.name|default:"Не назначен" }}</td>
-                    <td>
-                        {{ order.deadline_plan|date:"d.m.Y" }}
-                        {% if order.deadline_plan < today and not order.current_stage.is_final %}
-                            <i class="bi bi-exclamation-triangle-fill text-danger" title="Просрочено!"></i>
-                        {% endif %}
-                    </td>
-                    <td>{{ order.contract_amount_calculated }} ₽</td>
-                    <td>
-                        <a href="{% url 'admin:orders_order_change' order.id %}" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-pencil"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="text-center py-4 text-muted">Заказы не найдены</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}&show_completed={{ show_completed }}">→</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
 </div>
-
-<!-- Пагинация -->
-{% if is_paginated %}
-<nav class="mt-4">
-    <ul class="pagination justify-content-center">
-        {% if page_obj.has_previous %}
-            <li class="page-item"><a class="page-link" href="?page=1&search={{ request.GET.search }}&stage={{ request.GET.stage }}">Первая</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}">Назад</a></li>
-        {% endif %}
-        
-        <li class="page-item active"><span class="page-link">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span></li>
-        
-        {% if page_obj.has_next %}
-            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}">Вперед</a></li>
-            <li class="page-item"><a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&search={{ request.GET.search }}&stage={{ request.GET.stage }}">Последняя</a></li>
-        {% endif %}
-    </ul>
-</nav>
-{% endif %}
 {% endblock %}

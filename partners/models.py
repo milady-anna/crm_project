@@ -1,4 +1,5 @@
 from decimal import Decimal
+from phonenumber_field.modelfields import PhoneNumberField
 
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -8,13 +9,25 @@ class Client(models.Model):
     """Заказчики (те, кто покупает у нас мерч)"""
     name = models.CharField(max_length=200, verbose_name="Название компании")
     contact_person = models.CharField(max_length=200, blank=True, verbose_name="Контактное лицо")
-    phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон")
+    phone = PhoneNumberField(verbose_name="Номер телефона", blank=True)
     email = models.EmailField(blank=True, verbose_name="Email")
     requisites = models.TextField(blank=True, verbose_name="Реквизиты")
-    tax_rate = models.DecimalField(
-        max_digits=5, decimal_places=2, default=Decimal("0.20"),
-        verbose_name="Наценка по умолчанию",
+    STATUS_CHOICES = [
+    ('potential', 'Потенциальный (нет договора)'),
+    ('current', 'Текущий (договор заключен)'),
+    ]
+
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default='potential', verbose_name="Статус клиента"
     )
+    brandbook_url = models.URLField(
+        max_length=500, blank=True, verbose_name="Ссылка на брендбук заказчика (облако)"
+    )
+    default_markup_percent = models.DecimalField(
+        max_digits=5, decimal_places=2, default=30.00, 
+        verbose_name="Наценка по умолчанию (%)"
+    )
+
 
     def __str__(self):
         return self.name
@@ -29,7 +42,7 @@ class Contractor(models.Model):
     """Подрядчики (те, кто поставляет нам товары/услуги)"""
     name = models.CharField(max_length=200, verbose_name="Название компании / ИП")
     contact_person = models.CharField(max_length=200, blank=True, verbose_name="Контактное лицо")
-    phone = models.CharField(max_length=20, blank=True, verbose_name="Телефон")
+    phone = PhoneNumberField(verbose_name="Номер телефона", blank=True)
     payment_details = models.TextField(blank=True, verbose_name="Реквизиты оплаты")
     rating = models.PositiveSmallIntegerField(
         default=3, validators=[MinValueValidator(1), MaxValueValidator(5)],
@@ -43,3 +56,22 @@ class Contractor(models.Model):
         verbose_name = "Подрядчик"
         verbose_name_plural = "Подрядчики"
         ordering = ["name"]
+
+class ContractorReview(models.Model):
+    """Оценка работы подрядчика менеджером после завершения этапа/заказа"""
+    contractor = models.ForeignKey('Contractor', on_delete=models.CASCADE, related_name='reviews', verbose_name="Подрядчик")
+    order = models.ForeignKey('orders.Order', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Заказ")
+    rating = models.IntegerField(
+        choices=[(i, f"{i} звезда") for i in range(1, 6)], 
+        verbose_name="Оценка (1-5)"
+    )
+    comment = models.TextField(blank=True, verbose_name="Комментарий менеджера")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата оценки")
+
+    class Meta:
+        verbose_name = "Оценка подрядчика"
+        verbose_name_plural = "Оценки подрядчиков"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Оценка {self.contractor.short_name}: {self.rating}/5"

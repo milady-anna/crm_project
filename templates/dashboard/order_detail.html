@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+{% load rating_tags %}
+
+{% block title %}Заказ #{{ order.number }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Хлебные крошки -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard:order_list' %}">Список заказов</a></li>
+            <li class="breadcrumb-item active">Заказ #{{ order.number }}</li>
+        </ol>
+    </nav>
+
+    <!-- ШАПКА ЗАКАЗА -->
+    <div class="card mb-4 {% if order.has_overdue_substages %}border-danger{% endif %}" 
+         style="border-left: 5px solid {{ order.nearest_deadline|deadline_color }};">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center flex-wrap mb-2">
+                        <h2 class="mb-0 {% if order.has_overdue_substages %}text-danger{% endif %} fw-bold me-3">
+                            Заказ #{{ order.number }}
+                        </h2>
+                        <span class="fs-4 text-muted">для</span>
+                        <a href="{% url 'admin:partners_client_change' order.client.pk %}" 
+                           class="text-decoration-none fw-bold fs-4 text-primary ms-2">
+                            {{ order.client.name }}
+                        </a>
+                    </div>
+                    {% if order.manager %}
+                        <div class="text-muted small">
+                            <i class="bi bi-person"></i> Менеджер: {{ order.manager.get_full_name|default:order.manager.username }}
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="text-muted small">Сумма по договору</div>
+                            <div class="fs-5 fw-bold text-primary">{{ order.contract_amount_calculated|floatformat:0 }} ₽</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">Сумма расходов</div>
+                            <div class="fs-5 text-danger">{{ order.total_expenses|floatformat:0 }} ₽</div>
+                        </div>
+                    </div>
+                    <div class="row text-center mt-2">
+                        <div class="col-6">
+                            <div class="p-2 bg-light rounded">
+                                <div class="text-muted small">Дата по договору</div>
+                                <div class="fw-bold fs-5 {% if order.deadline_plan < today %}text-danger{% endif %}">
+                                    {{ order.deadline_plan|date:"d.m.Y"|default:"—" }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 bg-light rounded">
+                                <div class="text-muted small">Фактическая дата</div>
+                                <div class="fw-bold fs-5">
+                                    {{ order.deadline_fact|date:"d.m.Y"|default:"—" }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- СОСТАВ ЗАКАЗА -->
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0"><i class="bi bi-box-seam"></i> Состав заказа</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if order.items.all %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 25%;">Товар</th>
+                                <th style="width: 8%;" class="text-center">Кол-во</th>
+                                <th style="width: 12%;" class="text-end">Цена у подрядчика</th>
+                                <th style="width: 10%;" class="text-end">Наценка, %</th>
+                                <th style="width: 10%;" class="text-end">Наценка, руб</th>
+                                <th style="width: 10%;" class="text-end">Налог, %</th>
+                                <th style="width: 10%;" class="text-end">Налог, руб</th>
+                                <th style="width: 10%;" class="text-end">Итого цена</th>
+                                <th style="width: 5%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in order.items.all %}
+                            <tr>
+                                <td>
+                                    <!-- Название товара (редактируемое) -->
+                                    <input type="text" class="form-control form-control-sm border-0 bg-transparent" 
+                                           value="{{ item.product.name }}" 
+                                           data-item-id="{{ item.pk }}" 
+                                           data-field="product_name">
+                                    {% if item.variant %}
+                                        <small class="text-muted">({{ item.variant }})</small>
+                                    {% endif %}
+                                    
+                                    <!-- Разворачиваемый состав из компонентов (товаров поставщика) -->
+                                    {% if item.components.all %}
+                                        <button class="btn btn-sm btn-link p-0 mt-1 text-decoration-none" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#components-{{ item.pk }}">
+                                            <i class="bi bi-chevron-down"></i> Компоненты позиции ({{ item.components.count }})
+                                        </button>
+                                        <div class="collapse mt-2" id="components-{{ item.pk }}">
+                                            <div class="bg-light p-2 rounded">
+                                                <table class="table table-sm mb-2">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Товар поставщика</th>
+                                                            <th class="text-end">Кол-во</th>
+                                                            <th class="text-end">Цена</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for comp in item.components.all %}
+                                                        <tr>
+                                                            <td>{{ comp.supplier_product.name }}</td>
+                                                            <td class="text-end">{{ comp.quantity }}</td>
+                                                            <td class="text-end">{{ comp.unit_price|floatformat:0 }} ₽</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                                <button class="btn btn-sm btn-outline-primary">
+                                                    <i class="bi bi-plus"></i> Добавить компонент
+                                                </button>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="mt-1">
+                                            <button class="btn btn-sm btn-link p-0 text-decoration-none" 
+                                                    data-bs-toggle="collapse" 
+                                                    data-bs-target="#components-{{ item.pk }}">
+                                                <i class="bi bi-plus"></i> Добавить компоненты позиции
+                                            </button>
+                                            <div class="collapse mt-2" id="components-{{ item.pk }}">
+                                                <div class="bg-light p-2 rounded">
+                                                    <p class="small text-muted mb-2">Компоненты не добавлены</p>
+                                                    <button class="btn btn-sm btn-outline-primary">
+                                                        <i class="bi bi-plus"></i> Добавить компонент
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" class="form-control form-control-sm text-center border-0 bg-transparent" 
+                                           value="{{ item.quantity }}" 
+                                           style="width: 60px;"
+                                           data-item-id="{{ item.pk }}" 
+                                           data-field="quantity">
+                                </td>
+                                <td class="text-end">
+                                    <input type="number" class="form-control form-control-sm text-end border-0 bg-transparent" 
+                                           value="{{ item.cost_value|floatformat:0 }}" 
+                                           style="width: 100px; margin-left: auto;"
+                                           data-item-id="{{ item.pk }}" 
+                                           data-field="cost_value">
+                                    <span class="text-muted">₽</span>
+                                </td>
+                                
+                                <!-- Неизменяемые поля (считаются автоматически) -->
+                                <td class="text-end text-muted">{{ item.markup_percent|default:0 }}%</td>
+                                <td class="text-end text-muted">{{ item.net_markup_amount|default:0|floatformat:0 }} ₽</td>
+                                <td class="text-end text-muted">{{ item.tax_rate|default:0 }}%</td>
+                                <td class="text-end text-muted">{{ item.tax_amount|default:0|floatformat:0 }} ₽</td>
+                                
+                                <td class="text-end">
+                                    <input type="number" class="form-control form-control-sm text-end border-0 bg-transparent fw-bold" 
+                                           value="{{ item.total|floatformat:0 }}" 
+                                           style="width: 100px; margin-left: auto;"
+                                           data-item-id="{{ item.pk }}" 
+                                           data-field="total">
+                                    <span class="text-muted">₽</span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-success" title="Сохранить">
+                                        <i class="bi bi-check"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="7" class="text-end fw-bold">Итого:</td>
+                                <td class="text-end fw-bold fs-5 text-primary">{{ order.contract_amount_calculated|floatformat:0 }} ₽</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-box" style="font-size: 32px;"></i>
+                    <p class="mt-2 mb-0">Товары не добавлены</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- ЛЕВАЯ КОЛОНКА: Этапы + Подэтапы -->
+        <div class="col-md-8">
+            <!-- ЭТАПЫ КАК ТАБЫ -->
+            {% if stages %}
+            <div class="card mb-4">
+                <div class="card-body p-0">
+                    <div class="d-flex border-bottom">
+                        {% for stage in stages %}
+                        <a href="?stage={{ stage.pk }}" 
+                           class="flex-fill text-decoration-none text-center py-3 px-2 {% if active_stage == stage %}bg-primary text-white{% else %}bg-light text-dark{% endif %}"
+                           style="cursor: pointer; border-right: 1px solid #dee2e6; flex: 1;">
+                            <div class="fw-semibold small">{{ stage.name }}</div>
+                            {% if stage == order.current_stage %}
+                                <small class="{% if active_stage == stage %}text-white-50{% else %}text-muted{% endif %}">Текущий</small>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- ПОДЭТАПЫ -->
+            <div class="card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-check"></i> 
+                        {% if active_stage %}
+                            Подэтапы: {{ active_stage.name }}
+                        {% else %}
+                            Подэтапы
+                        {% endif %}
+                    </h5>
+                    <span class="badge bg-secondary">{{ substages|length }}</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if substages %}
+                        {% for sub in substages %}
+                        <div class="border-bottom p-3 {% if sub.deadline < today and sub.status != 'completed' %}bg-danger bg-opacity-10{% elif sub.status == 'completed' %}bg-success bg-opacity-10{% endif %}">
+                            <div class="d-flex align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center flex-wrap">
+                                        <span class="fw-bold me-2">{{ forloop.counter }}.</span>
+                                        <span class="fw-semibold {% if sub.status == 'completed' %}text-decoration-line-through text-success{% elif sub.deadline < today and sub.status != 'completed' %}text-danger{% endif %}">
+                                            {{ sub.name }}
+                                        </span>
+                                        <span class="text-muted ms-2">до {{ sub.deadline|date:"d.m.Y" }}</span>
+                                    </div>
+
+                                    {% if sub.hint %}
+                                        <button class="btn btn-sm btn-link p-0 text-decoration-none mt-1" 
+                                                data-bs-toggle="collapse" 
+                                                data-bs-target="#hint-{{ sub.pk }}">
+                                            <i class="bi bi-chevron-down"></i> Развернуть описание
+                                        </button>
+                                        <div class="collapse mt-2" id="hint-{{ sub.pk }}">
+                                            <div class="small text-muted mb-2">{{ sub.hint }}</div>
+                                            
+                                            <!-- Документы шаблона подэтапа -->
+                                            {% if sub.template and sub.template.template_documents.all %}
+                                                <div class="bg-light p-2 rounded">
+                                                    <div class="small fw-semibold mb-1">
+                                                        <i class="bi bi-paperclip"></i> Шаблоны документов:
+                                                    </div>
+                                                    {% for td in sub.template.template_documents.all %}
+                                                    <div class="small">
+                                                        <i class="bi bi-file-earmark-text"></i> {{ td.document_template.name }}
+                                                    </div>
+                                                    {% endfor %}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <div class="small text-muted mt-1">—</div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="ms-3">
+                                    {% if sub.status != 'completed' %}
+                                        <form method="post" action="{% url 'dashboard:update_substage_status' order.pk sub.pk %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="order_id" value="{{ order.pk }}">
+                                            <input type="hidden" name="status" value="completed">
+                                            <button type="submit" class="btn btn-success btn-sm">
+                                                <i class="bi bi-check-lg"></i> Выполнено
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <span class="badge bg-success fs-6 px-3 py-2">
+                                            <i class="bi bi-check-lg"></i> Выполнено
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="p-4 text-center text-muted">
+                            <i class="bi bi-inbox" style="font-size: 32px;"></i>
+                            <p class="mt-2 mb-0">
+                                {% if active_stage %}
+                                    Для этапа "{{ active_stage.name }}" подэтапы не созданы
+                                {% else %}
+                                    Подэтапы не созданы
+                                {% endif %}
+                            </p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА -->
+        <div class="col-md-4">
+            <!-- Документы заказа -->
+            <div class="card mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-folder"></i> Документы заказа</h5>
+                </div>
+                <div class="card-body">
+                    {% if order.brandbook_url or order.contract_url or order.kp_url %}
+                        {% if order.brandbook_url %}
+                            <a href="{{ order.brandbook_url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                                <i class="bi bi-palette"></i> Брендбук
+                            </a>
+                        {% endif %}
+                        {% if order.contract_url %}
+                            <a href="{{ order.contract_url }}" target="_blank" class="btn btn-outline-success btn-sm w-100 mb-2">
+                                <i class="bi bi-file-earmark-text"></i> Договор
+                            </a>
+                        {% endif %}
+                        {% if order.kp_url %}
+                            <a href="{{ order.kp_url }}" target="_blank" class="btn btn-outline-info btn-sm w-100 mb-2">
+                                <i class="bi bi-file-earmark-richtext"></i> КП
+                            </a>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-muted text-center small">Документы не загружены</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Комментарии -->
+            <div class="card mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-chat-dots"></i> Комментарии</h5>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#commentsSection">
+                        <i class="bi bi-eye"></i> Посмотреть
+                    </button>
+                </div>
+                <div class="collapse" id="commentsSection">
+                    <div class="card-body">
+                        <form method="post" action="{% url 'dashboard:add_comment' order.pk %}" class="mb-3">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <textarea name="text" class="form-control" rows="3" 
+                                          placeholder="Написать комментарий..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <i class="bi bi-send"></i> Добавить комментарий
+                            </button>
+                        </form>
+
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            {% for comment in comments %}
+                            <div class="border-bottom pb-2 mb-2">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <strong class="small">{{ comment.author.get_full_name|default:comment.author.username }}</strong>
+                                    <small class="text-muted">{{ comment.created_at|date:"d.m.Y H:i" }}</small>
+                                </div>
+                                <p class="mb-0 small">{{ comment.text|linebreaksbr }}</p>
+                            </div>
+                            {% empty %}
+                            <div class="text-center text-muted py-3">
+                                <p class="mb-0 small">Комментариев пока нет</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Бюджет заказа -->
+            <div class="card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Бюджет заказа</h5>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addPayment">
+                        <i class="bi bi-plus"></i> Новый платеж
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="collapse p-3 bg-light" id="addPayment">
+                        <form method="post" action="{% url 'dashboard:add_budget_item' order.pk %}">
+                            {% csrf_token %}
+                            <div class="mb-2">
+                                <input type="text" name="description" class="form-control" placeholder="Назначение платежа" required>
+                            </div>
+                            <div class="mb-2">
+                                <select name="contractor" class="form-select">
+                                    <option value="">Подрядчик</option>
+                                    {% for contractor in contractors %}
+                                        <option value="{{ contractor.pk }}">{{ contractor.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <input type="number" name="amount" class="form-control" placeholder="Сумма" step="0.01" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm w-100">Добавить</button>
+                        </form>
+                    </div>
+
+                    {% if budget_items %}
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Назначение платежа</th>
+                                    <th>Подрядчик</th>
+                                    <th class="text-end">Сумма</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in budget_items %}
+                                <tr>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm border-0 bg-transparent" 
+                                               value="{{ item.description }}"
+                                               data-budget-id="{{ item.pk }}"
+                                               data-field="description">
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm border-0 bg-transparent"
+                                                data-budget-id="{{ item.pk }}"
+                                                data-field="contractor">
+                                            <option value="">—</option>
+                                            {% for contractor in contractors %}
+                                                <option value="{{ contractor.pk }}" {% if item.contractor_id == contractor.pk %}selected{% endif %}>
+                                                    {{ contractor.name }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td class="text-end">
+                                        <input type="number" class="form-control form-control-sm text-end border-0 bg-transparent fw-bold" 
+                                               value="{{ item.amount_plan|floatformat:0 }}"
+                                               style="width: 80px; margin-left: auto;"
+                                               data-budget-id="{{ item.pk }}"
+                                               data-field="amount">
+                                        <span class="text-muted">₽</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <td colspan="2" class="text-end fw-bold">Итого:</td>
+                                    <td class="text-end fw-bold text-danger">{{ order.total_expenses|floatformat:0 }} ₽</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    {% else %}
+                        <div class="p-3 text-center text-muted small">
+                            Платежи не добавлены
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- СНОСКА -->
+    <div class="mt-4 text-muted small fst-italic">
+        *Заказ считается завершённым, если мы имеем все закрывающие документы
+    </div>
+</div>
+{% endblock %}

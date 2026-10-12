@@ -11,10 +11,15 @@ from partners.models import Contractor
 class OurProduct(models.Model):
     """Наши товары (то, что мы продаём клиентам)"""
     name = models.CharField(max_length=200, verbose_name="Название товара")
-    sale_price = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0,
-        verbose_name="Базовая цена продажи без НДС (справочно)",
-    )
+    property
+    def cost(self):
+        """Базовая себестоимость = сумма компонентов спецификации. Изменить нельзя."""
+        components = self.components.select_related('supplier_product').all()
+        if not components.exists():
+            return Decimal('0.00')
+        
+        total = sum(comp.quantity * comp.supplier_product.unit_price for comp in components)
+        return round(total, 2)
     min_quantity = models.PositiveIntegerField(default=1, verbose_name="Минимальный тираж (шт.)")
     production_days = models.PositiveIntegerField(default=1, verbose_name="Срок производства (дней)")
 

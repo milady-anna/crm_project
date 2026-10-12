@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% load rating_tags %}
+
+{% block title %}Подрядчики{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Подрядчики</h2>
+        <a href="{% url 'admin:partners_contractor_add' %}" class="btn btn-primary">
+            + Добавить подрядчика
+        </a>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-5">
+                    <input type="text" name="search" class="form-control" 
+                           placeholder="Поиск по названию..." 
+                           value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-5">
+                    <input type="text" name="product" class="form-control" 
+                           placeholder="Поиск по производимым товарам..." 
+                           value="{{ product_search }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-outline-secondary w-100">Применить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Список подрядчиков (карточки) -->
+    <div class="row g-3">
+        {% for contractor in contractors %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <!-- Название + контактное лицо -->
+                        <div class="col-md-4">
+                            <a href="{% url 'dashboard:contractor_detail' contractor.pk %}" 
+                               class="text-decoration-none fw-bold d-block text-primary fs-5">
+                                {{ contractor.name }}
+                            </a>
+                            {% if contractor.contact_person %}
+                                <small class="text-muted">{{ contractor.contact_person }}</small>
+                            {% endif %}
+                        </div>
+
+                        <!-- Товары списком -->
+                        <div class="col-md-5">
+                            {% if contractor.supplierproduct_set.exists %}
+                                <button class="btn btn-sm btn-link p-0 text-decoration-none" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#products-{{ contractor.pk }}"
+                                        aria-expanded="false">
+                                    <i class="bi bi-chevron-down"></i> 
+                                    {{ contractor.supplierproduct_set.count }} товар(ов)
+                                </button>
+                                <div class="collapse mt-2" id="products-{{ contractor.pk }}">
+                                    <ul class="list-unstyled mb-0 small">
+                                        {% for product in contractor.supplierproduct_set.all %}
+                                        <li class="py-1 border-bottom">
+                                            <span class="fw-semibold">{{ product.name }}</span>
+                                            {% if product.product_type %}
+                                                <span class="text-muted ms-1">({{ product.product_type }})</span>
+                                            {% endif %}
+                                            <span class="float-end text-success">{{ product.unit_price|floatformat:0 }} ₽</span>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Рейтинг в квадратике -->
+                        <div class="col-md-2 text-center">
+                            {% if contractor.average_rating > 0 %}
+                                <div class="d-inline-flex align-items-center justify-content-center rounded" 
+                                     style="background-color: {{ contractor.average_rating|rating_color }}; 
+                                            color: white; 
+                                            padding: 8px 14px; 
+                                            font-size: 18px; 
+                                            font-weight: bold; 
+                                            min-width: 60px;">
+                                    {{ contractor.average_rating }}<i class="bi bi-star-fill ms-1" style="font-size: 16px;"></i>
+                                </div>
+                            {% else %}
+                                <div class="d-inline-flex align-items-center justify-content-center rounded" 
+                                     style="background-color: #adb5bd; 
+                                            color: white; 
+                                            padding: 8px 14px; 
+                                            font-size: 18px; 
+                                            font-weight: bold; 
+                                            min-width: 60px;">
+                                    —
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Кнопка редактирования -->
+                        <div class="col-md-1 text-end">
+                            <a href="{% url 'admin:partners_contractor_change' contractor.pk %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox" style="font-size: 48px;"></i>
+                <p class="mt-2">Подрядчики не найдены</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ request.GET.search }}&product={{ product_search }}">←</a>
+                </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                    <a class="page-link" href="?page={{ num }}&search={{ request.GET.search }}&product={{ product_search }}">{{ num }}</a>
+                </li>
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ request.GET.search }}&product={{ product_search }}">→</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

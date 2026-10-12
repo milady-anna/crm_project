@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'phonenumber_field',
     
     # Наши приложения:
     'orders',
@@ -138,3 +139,5 @@ AUTH_USER_MODEL = 'users.CustomUser'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard:order_list'
 LOGOUT_REDIRECT_URL = 'login'
+
+PHONENUMBER_DEFAULT_REGION = "RU"

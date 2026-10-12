@@ -1,43 +1,62 @@
 # orders/services.py
 """Вся бизнес-логика заказов - здесь. Админка (сейчас) и страницы (потом)
 просто вызывают эти функции."""
+
 from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
 
-from .models import Substage
+from .models import Substage, OrderItem, OrderItemComponent
+from products.models import ProductComponent
 
 
 @transaction.atomic
 def create_substages_for_order(order):
-    """Копирует в заказ подэтапы из его типа. Если подэтапы уже есть - ничего не делает."""
-    if order.substages.exists():
-        return
+    """
+    Копирует подэтапы из типа заказа.
+    Рассчитывает накопительный дедлайн: Дедлайн N = Дедлайн (N-1) + длительность N.
+    """
+    # Удаляем старые подэтапы, если они есть (для пересоздания)
+    order.substages.all().delete()
 
-    rows = order.order_type.ordertypetemplate_set.select_related(
+    templates = order.order_type.ordertypetemplate_set.select_related(
         "template__default_stage"
-    ).order_by("template__default_stage__order_index", "order_index", "id")
+    ).order_by("order_index")
 
-    deadline = timezone.localdate()
-    counters = {}  # номер подэтапа внутри этапа
-    new_substages = []
-    for row in rows:
-        template = row.template
-        stage_id = template.default_stage_id
-        counters[stage_id] = counters.get(stage_id, 0) + 1
-        deadline += timedelta(days=row.duration_days)  # дедлайны идут друг за другом
-        new_substages.append(Substage(
+    current_date = order.created_at.date()
+    current_stage_id = None
+    index_in_stage = 0
+
+    for ott in templates:
+        stage_id = (
+            ott.template.default_stage_id
+            if ott.template.default_stage
+            else order.current_stage_id
+        )
+
+        # Сброс счетчика внутри этапа при смене этапа
+        if stage_id != current_stage_id:
+            current_stage_id = stage_id
+            index_in_stage = 1
+        else:
+            index_in_stage += 1
+
+        # Накопительный расчет дедлайна
+        current_date = current_date + timezone.timedelta(days=ott.duration_days)
+
+        Substage.objects.create(
             order=order,
-            template=template,
+            template=ott.template,  # Сохраняем связь для подтягивания документов!
             stage_id=stage_id,
-            name=template.name,
-            hint=template.hint,
-            duration_days=row.duration_days,
-            deadline=deadline,
-            index_in_stage=counters[stage_id],
-        ))
-    Substage.objects.bulk_create(new_substages)
+            name=ott.template.name,  # Название строго из шаблона
+            hint=ott.template.hint,  # Подсказка из шаблона
+            duration_days=ott.duration_days,
+            deadline=current_date,  # Расчетный дедлайн
+            index_in_stage=index_in_stage,
+            status="not_started",
+        )
+
     order.update_current_stage()
 
 
