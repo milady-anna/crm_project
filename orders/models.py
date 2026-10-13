@@ -161,8 +161,39 @@ class Order(models.Model):
 
             create_substages_for_order(self)
 
+        # Обновляем статус клиента
+        self.client.update_status()
+
     def __str__(self):
         return f"Заказ {self.number} ({self.client})"
+
+    def update_current_stage(self):
+        """Пересчёт текущего этапа по незавершённым подэтапам."""
+        if not self.substages.exists():
+            return
+
+        pending = (
+            self.substages.exclude(status="completed")
+            .select_related("stage")
+            .order_by("stage__order_index", "index_in_stage", "id")
+            .first()
+        )
+        if pending:
+            new_stage_id = pending.stage_id
+            new_fact = None
+        else:
+            final = Stage.objects.filter(is_final=True).first()
+            new_stage_id = final.pk if final else self.current_stage_id
+            new_fact = self.deadline_fact or timezone.localdate()
+
+        Order.objects.filter(pk=self.pk).update(
+            current_stage_id=new_stage_id, deadline_fact=new_fact
+        )
+        self.current_stage_id = new_stage_id
+        self.deadline_fact = new_fact
+
+        # Обновляем статус клиента
+        self.client.update_status()
 
     @property
     def progress_percent(self):
@@ -221,6 +252,13 @@ class Order(models.Model):
             )["total"]
             or 0
         )
+
+    @property
+    def contract_amount_calculated(self):
+        """Сумма по договору = сумма всех позиций заказа."""
+        from decimal import Decimal
+
+        return sum((item.total for item in self.items.all()), Decimal("0"))
 
     class Meta:
         verbose_name = "Заказ"
