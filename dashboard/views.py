@@ -19,6 +19,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse
 from django.views import View
 from orders.models import Substage, OrderComment
+from .forms import OrderCreateForm, OrderItemFormSet
 
 
 def user_is_manager(user):
@@ -1008,3 +1009,30 @@ class OrderCreateView(LoginRequiredMixin, View):
         from django.shortcuts import render
 
         return render(request, self.template_name, context)
+
+
+class AddContractorReviewView(LoginRequiredMixin, View):
+    """Добавление отзыва/оценки подрядчику"""
+
+    def post(self, request, pk):
+        contractor = get_object_or_404(Contractor, pk=pk)
+        rating = request.POST.get("rating", 0)
+        comment = request.POST.get("comment", "").strip()
+        order_id = request.POST.get("order")
+
+        if rating and comment:
+            from partners.models import ContractorReview
+
+            review = ContractorReview(
+                contractor=contractor, rating=int(rating), comment=comment
+            )
+            if order_id and order_id.isdigit():
+                from orders.models import Order
+
+                review.order_id = order_id
+            review.save()
+
+            # <-- ДОБАВИТЬ ЭТУ СТРОКУ:
+            contractor.update_rating()
+
+        return redirect("dashboard:contractor_detail", pk=pk)

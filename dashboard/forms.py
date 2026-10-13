@@ -9,7 +9,6 @@ class OrderCreateForm(forms.ModelForm):
     class Meta:
         model = Order
         fields = [
-            "number",
             "client",
             "manager",
             "order_type",
@@ -21,9 +20,6 @@ class OrderCreateForm(forms.ModelForm):
             "prepayment_percent",
         ]
         widgets = {
-            "number": forms.TextInput(
-                attrs={"class": "form-control", "placeholder": "Например: 535636"}
-            ),
             "client": forms.Select(attrs={"class": "form-select"}),
             "manager": forms.Select(attrs={"class": "form-select"}),
             "order_type": forms.Select(attrs={"class": "form-select"}),

@@ -103,7 +103,9 @@ class OrderTypeTemplate(models.Model):
 
 
 class Order(models.Model):
-    number = models.CharField(max_length=50, unique=True, verbose_name="Номер заказа")
+    number = models.CharField(
+        max_length=50, unique=True, verbose_name="Номер заказа", blank=True
+    )
     client = models.ForeignKey(
         Client, on_delete=models.PROTECT, verbose_name="Заказчик"
     )
@@ -140,7 +142,10 @@ class Order(models.Model):
         max_length=500, blank=True, verbose_name="Ссылка на КП (облако)"
     )
     contract_file = models.FileField(
-        upload_to="orders/contracts/", null=True, blank=True, verbose_name="Файл договора"
+        upload_to="orders/contracts/",
+        null=True,
+        blank=True,
+        verbose_name="Файл договора",
     )
     kp_file = models.FileField(
         upload_to="orders/kp/", null=True, blank=True, verbose_name="Файл КП"
@@ -152,8 +157,27 @@ class Order(models.Model):
         verbose_name="Процент предоплаты (%)",
     )
 
+    def generate_number(self):
+        """Генерирует уникальный номер заказа автоматически"""
+        last_order = Order.objects.order_by("-pk").first()
+        if last_order and last_order.number:
+            # Берём последний номер и увеличиваем на 1
+            try:
+                last_num = int(last_order.number)
+                new_num = last_num + 1
+            except (ValueError, TypeError):
+                new_num = 1
+        else:
+            new_num = 1
+
+        # Формат: 6 цифр с ведущими нулями (000001, 000002...)
+        return f"{new_num:06d}"
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
+
+        if is_new and not self.number:
+            self.number = self.generate_number()
 
         # Автозаполнение брендбука из клиента
         if is_new and not self.brandbook_url:

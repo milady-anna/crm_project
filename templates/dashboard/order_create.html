@@ -45,13 +45,6 @@
                             <div class="card-body">
                                 <div class="row g-3">
                                     <div class="col-md-4">
-                                        <label class="form-label fw-semibold">Номер заказа *</label>
-                                        {{ form.number }}
-                                        {% if form.number.errors %}
-                                            <div class="text-danger small">{{ form.number.errors.0 }}</div>
-                                        {% endif %}
-                                    </div>
-                                    <div class="col-md-4">
                                         <label class="form-label fw-semibold">Заказчик *</label>
                                         {{ form.client }}
                                         {% if form.client.errors %}
