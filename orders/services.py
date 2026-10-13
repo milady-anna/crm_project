@@ -16,15 +16,19 @@ def create_substages_for_order(order):
     """
     Копирует подэтапы из типа заказа.
     Рассчитывает накопительный дедлайн: Дедлайн N = Дедлайн (N-1) + длительность N.
+    Идемпотентна: существующие подэтапы (с отмеченными статусами) не пересоздаются.
     """
-    # Удаляем старые подэтапы, если они есть (для пересоздания)
-    order.substages.all().delete()
+    if order.substages.exists():
+        return
 
     templates = order.order_type.ordertypetemplate_set.select_related(
         "template__default_stage"
     ).order_by("order_index")
 
-    current_date = order.created_at.date()
+    # Накопительный дедлайн стартует от даты создания заказа (в локальной таймзоне),
+    # а не от datetime.utcnow() — иначе сроки «уезжают» на час/день.
+    created_at = order.created_at or timezone.now()
+    current_date = timezone.localtime(created_at).date()
     current_stage_id = None
     index_in_stage = 0
 
@@ -43,7 +47,7 @@ def create_substages_for_order(order):
             index_in_stage += 1
 
         # Накопительный расчет дедлайна
-        current_date = current_date + timezone.timedelta(days=ott.duration_days)
+        current_date = current_date + timedelta(days=ott.duration_days)
 
         Substage.objects.create(
             order=order,

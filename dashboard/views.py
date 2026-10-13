@@ -1,6 +1,10 @@
 ﻿# dashboard/views.py
-from decimal import Decimal
+from datetime import date
+from decimal import Decimal, InvalidOperation
+
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -14,6 +18,38 @@ from django.views import View
 from orders.models import Substage, OrderComment
 
 
+def user_is_manager(user):
+    """Рядовой менеджер (не руководитель и не администратор)."""
+    return user.is_authenticated and not (user.is_staff or user.is_superuser)
+
+
+def order_scope(request):
+    """Заказы, видимые текущему пользователю.
+
+    Руководитель/admin видит всё, менеджер — только свои заказы.
+    """
+    qs = Order.objects.select_related(
+        "client", "manager", "current_stage", "order_type"
+    ).prefetch_related("items", "substages")
+    if user_is_manager(request.user):
+        qs = qs.filter(manager=request.user)
+    return qs
+
+
+def check_order_access(request, order):
+    """Запрещает менеджеру открывать/менять чужой заказ (защита от IDOR)."""
+    if user_is_manager(request.user) and order.manager_id != request.user.pk:
+        raise PermissionDenied
+
+
+def parse_amount(raw):
+    """Безопасно превращает строку формы в Decimal; None — если не число."""
+    try:
+        return Decimal(str(raw).replace(",", "."))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+
+
 class OrderListView(LoginRequiredMixin, ListView):
     model = Order
     template_name = "dashboard/order_list.html"
@@ -21,14 +57,12 @@ class OrderListView(LoginRequiredMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = Order.objects.select_related(
-            "client", "manager", "current_stage", "order_type"
-        ).prefetch_related("items", "substages")
+        queryset = order_scope(self.request)
 
         # По умолчанию скрываем завершённые
         show_completed = self.request.GET.get("show_completed", "")
         if show_completed != "1":
-            completed_ids = [o.pk for o in Order.objects.all() if o.is_completed]
+            completed_ids = [o.pk for o in queryset if o.is_completed]
             queryset = queryset.exclude(pk__in=completed_ids)
 
         # Поиск по номеру или клиенту
@@ -124,18 +158,20 @@ class OrderDetailView(LoginRequiredMixin, View):
                 "items",
                 "items__product",
                 "items__components",
-                "items__components__supplier_product",  # <-- ИСПРАВЛЕНО
+                "items__components__supplier_product",
                 "substages",
                 "substages__template",
                 "substages__template__template_documents",
-                "substages__template__template_documents__document_template",  # <-- ИСПРАВЛЕНО
+                "substages__template__template_documents__document_template",
                 "comments",
                 "comments__author",
             ),
             pk=pk,
         )
+        check_order_access(request, order)
         from finance.models import BudgetItem
         from partners.models import Contractor
+        from products.models import OurProduct
 
         # Получаем активный этап из GET-параметра, по умолчанию — текущий этап заказа
         active_stage_id = request.GET.get("stage")
@@ -162,6 +198,7 @@ class OrderDetailView(LoginRequiredMixin, View):
                 order=order, flow_type="expense"
             ).select_related("contractor"),
             "contractors": Contractor.objects.all(),
+            "our_products": OurProduct.objects.all().order_by("name"),
             "stages": Stage.objects.all().order_by("order_index"),
             "active_stage": active_stage,
             "substages": filtered_substages,
@@ -173,26 +210,35 @@ class OrderDetailView(LoginRequiredMixin, View):
 
 
 class UpdateSubstageStatusView(LoginRequiredMixin, View):
-    """AJAX: смена статуса подэтапа"""
+    """AJAX/POST: смена статуса подэтапа."""
 
     def post(self, request, pk, substage_pk):
-        substage = get_object_or_404(Substage, pk=substage_pk, order_id=pk)
+        order = get_object_or_404(Order, pk=pk)
+        check_order_access(request, order)
+        substage = get_object_or_404(Substage, pk=substage_pk, order=order)
         new_status = request.POST.get("status")
         if new_status in ["not_started", "in_progress", "completed"]:
             substage.status = new_status
-            from django.utils import timezone
-
             if new_status == "completed":
                 substage.completed_date = timezone.localdate()
             else:
                 substage.completed_date = None
-            substage.save()
+            substage.save()  # внутри save() уже пересчитывается этап заказа
 
-            # Пересчёт прогресса заказа
-            substage.order.update_current_stage()
-
-            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-                return JsonResponse({"status": "ok", "new_status": new_status})
+            wants_json = (
+                request.headers.get("X-Requested-With") == "XMLHttpRequest"
+                or "application/json" in request.headers.get("Accept", "")
+            )
+            if wants_json:
+                return JsonResponse(
+                    {
+                        "status": "ok",
+                        "new_status": new_status,
+                        "progress_percent": substage.order.progress_percent,
+                        "is_completed": substage.order.is_completed,
+                    }
+                )
+        messages.error(request, "Некорректный статус подэтапа.")
         return redirect("dashboard:order_detail", pk=pk)
 
 
@@ -201,9 +247,12 @@ class AddCommentView(LoginRequiredMixin, View):
 
     def post(self, request, pk):
         order = get_object_or_404(Order, pk=pk)
+        check_order_access(request, order)
         text = request.POST.get("text", "").strip()
         if text:
             OrderComment.objects.create(order=order, author=request.user, text=text)
+        else:
+            messages.error(request, "Комментарий не может быть пустым.")
         return redirect("dashboard:order_detail", pk=pk)
 
 
@@ -211,22 +260,290 @@ class AddBudgetItemView(LoginRequiredMixin, View):
     """Добавление платежа в бюджет заказа"""
 
     def post(self, request, pk):
+        from finance.models import BudgetItem
+
         order = get_object_or_404(Order, pk=pk)
+        check_order_access(request, order)
         description = request.POST.get("description", "").strip()
         contractor_id = request.POST.get("contractor")
-        amount = request.POST.get("amount", 0)
-        planned_date = request.POST.get("planned_date")
+        amount = parse_amount(request.POST.get("amount"))
+        planned_date_raw = request.POST.get("planned_date", "").strip()
 
-        if description and amount:
-            BudgetItem.objects.create(
-                order=order,
-                description=description,
-                contractor_id=contractor_id if contractor_id else None,
-                amount_plan=amount,
-                planned_date=planned_date if planned_date else None,
-                flow_type="expense",
-            )
+        planned_date = None
+        if planned_date_raw:
+            try:
+                planned_date = date.fromisoformat(planned_date_raw)
+            except ValueError:
+                messages.error(request, "Некорректная дата платежа.")
+                return redirect("dashboard:order_detail", pk=pk)
+
+        errors = []
+        if not description:
+            errors.append("Укажите назначение платежа.")
+        if amount is None or amount <= 0:
+            errors.append("Сумма должна быть положительным числом.")
+        if contractor_id:
+            if not Contractor.objects.filter(pk=contractor_id).exists():
+                errors.append("Подрядчик не найден.")
+        else:
+            contractor_id = None
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect("dashboard:order_detail", pk=pk)
+
+        BudgetItem.objects.create(
+            order=order,
+            component_name=description,
+            contractor_id=contractor_id,
+            amount_plan=amount,
+            date_plan=planned_date,
+            flow_type="expense",
+        )
+        messages.success(request, "Платёж добавлен в бюджет заказа.")
         return redirect("dashboard:order_detail", pk=pk)
+
+
+class UpdateOrderItemView(LoginRequiredMixin, View):
+    """POST: редактирование позиции заказа прямо в таблице (расчёт цены по договору).
+
+    Все пользователи системы могут менять: количество, цену подрядчика,
+    наценку %, налог % и итоговую цену за единицу.
+    """
+
+    def post(self, request, pk):
+        from orders.models import OrderItem
+
+        item = get_object_or_404(OrderItem.objects.select_related("order"), pk=pk)
+        check_order_access(request, item.order)
+
+        errors = []
+        updates = {}
+
+        def dec_field(name, label, max_value=None, allow_empty=False):
+            raw = request.POST.get(name)
+            if raw is None:
+                return None
+            value = parse_amount(raw)
+            if value is None and not (allow_empty and raw.strip() == ""):
+                errors.append(f"«{label}» — не число.")
+                return None
+            if value is not None and value < 0:
+                errors.append(f"«{label}» не может быть отрицательной.")
+                return None
+            if max_value is not None and value is not None and value > max_value:
+                errors.append(f"«{label}» слишком большая (максимум {max_value}).")
+                return None
+            return value
+
+        # Количество
+        qty_raw = dec_field("quantity", "Количество", max_value=100000)
+        if qty_raw is not None:
+            if qty_raw != int(qty_raw) or qty_raw < 1:
+                errors.append("Количество должно быть целым числом от 1.")
+            else:
+                updates["quantity"] = int(qty_raw)
+
+        # Цена подрядчика: пустое поле = сброс ручной цены (снова считаем по компонентам)
+        cost_raw = request.POST.get("contractor_cost")
+        if cost_raw is not None:
+            if cost_raw.strip() == "":
+                updates["manual_cost"] = None
+            else:
+                value = dec_field("contractor_cost", "Цена подрядчика", max_value=9999999)
+                if value is not None:
+                    updates["manual_cost"] = value
+
+        markup = dec_field("markup_percent", "Наценка, %", max_value=999.99)
+        if markup is not None:
+            updates["markup_percent"] = markup
+
+        tax = dec_field("tax_rate", "Налог, %", max_value=99.99)
+        if tax is not None:
+            updates["tax_rate"] = tax
+
+        price = dec_field("price", "Итоговая цена", max_value=9999999)
+        if price is not None:
+            updates["price"] = price
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect("dashboard:order_detail", pk=item.order_id)
+
+        manual_price_given = "price" in updates
+        explicit_fields = [f for f in ("markup_percent", "tax_rate") if f in updates]
+
+        for field, value in updates.items():
+            setattr(item, field, value)
+
+        if manual_price_given:
+            # Менеджер задал итог руками — пересчёт из себестоимости НЕ делаем,
+            # но обратную наценку показывем честно (поле markup_percent не трогаем).
+            save_fields = ["price"] + explicit_fields
+            if "quantity" in updates:
+                save_fields.append("quantity")
+            if "manual_cost" in updates:
+                save_fields.append("manual_cost")
+            item.save(update_fields=save_fields)
+        else:
+            item.save()  # внутри save() произойдёт recalculate(): цена = подрядчик × (1+наценка)
+
+        messages.success(request, f"Позиция «{item.product.name}» пересчитана.")
+        return redirect("dashboard:order_detail", pk=item.order_id)
+
+
+class AddOrderItemView(LoginRequiredMixin, View):
+    """POST: добавить товар в заказ (выбор из каталога наших товаров)."""
+
+    def post(self, request, pk):
+        from orders.models import Order, OrderItem
+        from products.models import OurProduct
+
+        order = get_object_or_404(Order, pk=pk)
+        check_order_access(request, order)
+
+        product_id = request.POST.get("product")
+        quantity = parse_amount(request.POST.get("quantity"))
+        markup = parse_amount(request.POST.get("markup_percent"))
+
+        errors = []
+        product = (
+            OurProduct.objects.filter(pk=product_id).first()
+            if product_id and product_id.isdigit()
+            else None
+        )
+        if not product:
+            errors.append("Выберите товар из каталога.")
+        if quantity is None or quantity < 1 or quantity != int(quantity):
+            errors.append("Количество должно быть целым числом от 1.")
+        if markup is not None and (markup < 0 or markup > 999):
+            errors.append("Наценка должна быть от 0 до 999%.")
+            markup = None
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect("dashboard:order_detail", pk=pk)
+
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=int(quantity),
+            **({"markup_percent": markup} if markup is not None else {}),
+        )
+        messages.success(request, f"Товар «{product.name}» добавлен в заказ.")
+        return redirect("dashboard:order_detail", pk=pk)
+
+
+class DeleteOrderItemView(LoginRequiredMixin, View):
+    """POST: удалить позицию из заказа."""
+
+    def post(self, request, pk):
+        from orders.models import OrderItem
+
+        item = get_object_or_404(OrderItem.objects.select_related("order"), pk=pk)
+        check_order_access(request, item.order)
+        order_id = item.order_id
+        name = item.product.name
+        item.delete()
+        messages.success(request, f"Позиция «{name}» удалена из заказа.")
+        return redirect("dashboard:order_detail", pk=order_id)
+
+
+class UpdateOrderDocumentsView(LoginRequiredMixin, View):
+    """POST: прикрепить файлы документов к заказу (КП, договор) и/или ссылки."""
+
+    ALLOWED_EXT = {"pdf", "doc", "docx", "xls", "xlsx", "png", "jpg", "jpeg", "zip"}
+    MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 МБ
+
+    def _clean_file(self, fobj, label):
+        """Возвращает (файл, ошибка). Проверяет размер и расширение."""
+        import os
+
+        ext = os.path.splitext(fobj.name)[1].lower().lstrip(".")
+        if ext not in self.ALLOWED_EXT:
+            return None, f"Файл «{label}»: недопустимый тип .{ext}."
+        if fobj.size > self.MAX_FILE_SIZE:
+            return None, f"Файл «{label}»: больше 20 МБ."
+        return fobj, None
+
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk)
+        check_order_access(request, order)
+
+        errors = []
+        updated = []
+
+        for field, label in (("kp_file", "КП"), ("contract_file", "Договор")):
+            fobj = request.FILES.get(field)
+            if fobj:
+                cleaned, error = self._clean_file(fobj, label)
+                if error:
+                    errors.append(error)
+                else:
+                    setattr(order, field, cleaned)
+                    updated.append(label)
+
+        for field, label in (("contract_url", "ссылка на договор"), ("kp_url", "ссылка на КП")):
+            raw = request.POST.get(field)
+            if raw is not None and raw.strip():
+                value = raw.strip()
+                if not value.startswith(("http://", "https://")):
+                    errors.append(f"«{label}» должна начинаться с http(s)://.")
+                else:
+                    setattr(order, field, value[:500])
+                    updated.append(label)
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect("dashboard:order_detail", pk=pk)
+
+        if updated:
+            order.save(update_fields=["contract_file", "kp_file", "contract_url", "kp_url"])
+            messages.success(request, "Документы обновлены: " + ", ".join(updated) + ".")
+        else:
+            messages.error(request, "Не выбран ни файл, ни ссылка для загрузки.")
+        return redirect("dashboard:order_detail", pk=pk)
+
+
+class UpdateBudgetItemView(LoginRequiredMixin, View):
+    """POST: inline-редактирование планового платежа в бюджете заказа."""
+
+    def post(self, request, pk):
+        from finance.models import BudgetItem
+
+        item = get_object_or_404(BudgetItem.objects.select_related("order"), pk=pk)
+        check_order_access(request, item.order)
+
+        field = request.POST.get("field")
+        value = request.POST.get("value", "")
+
+        if field == "description":
+            if not value.strip():
+                messages.error(request, "Назначение платежа не может быть пустым.")
+            else:
+                item.component_name = value.strip()[:200]
+                item.save(update_fields=["component_name"])
+        elif field == "contractor":
+            if value and not Contractor.objects.filter(pk=value).exists():
+                messages.error(request, "Подрядчик не найден.")
+            else:
+                item.contractor_id = value or None
+                item.save(update_fields=["contractor"])
+        elif field == "amount":
+            amount = parse_amount(value)
+            if amount is None or amount <= 0:
+                messages.error(request, "Сумма должна быть положительным числом.")
+            else:
+                item.amount_plan = amount
+                item.save(update_fields=["amount_plan"])
+        else:
+            messages.error(request, "Неизвестное поле платежа.")
+
+        return JsonResponse({"status": "ok"})
 
 
 class ClientDetailView(LoginRequiredMixin, View):
@@ -310,11 +627,12 @@ class ContractorDetailView(LoginRequiredMixin, View):
         supplier_product_ids = contractor.supplierproduct_set.values_list(
             "pk", flat=True
         )
-        contractor_orders = (
+        orders_with_contractor_products = (
             Order.objects.filter(
                 items__components__supplier_product_id__in=supplier_product_ids
             )
             .distinct()
+            .select_related("client", "manager", "current_stage")
             .order_by("-created_at")
         )
 
@@ -330,7 +648,7 @@ class ContractorDetailView(LoginRequiredMixin, View):
             "products": contractor.supplierproduct_set.all(),
             "orders_with_contractor": orders_with_contractor,
             "reviews": reviews,
-            "contractor_orders": contractor_orders,
+            "contractor_orders": orders_with_contractor_products,
         }
         from django.shortcuts import render
 
@@ -342,19 +660,34 @@ class AddContractorReviewView(LoginRequiredMixin, View):
 
     def post(self, request, pk):
         contractor = get_object_or_404(Contractor, pk=pk)
-        rating = request.POST.get("rating", 0)
+        rating_raw = request.POST.get("rating", "")
         comment = request.POST.get("comment", "").strip()
         order_id = request.POST.get("order")
 
-        if rating and comment:
-            from partners.models import ContractorReview
+        try:
+            rating = int(rating_raw)
+        except (TypeError, ValueError):
+            rating = None
 
-            review = ContractorReview(
-                contractor=contractor, rating=int(rating), comment=comment
-            )
-            if order_id and order_id.isdigit():
-                from orders.models import Order
+        if rating is None or not 1 <= rating <= 5:
+            messages.error(request, "Оценка должна быть от 1 до 5.")
+            return redirect("dashboard:contractor_detail", pk=pk)
+        if not comment:
+            messages.error(request, "Добавьте комментарий к оценке.")
+            return redirect("dashboard:contractor_detail", pk=pk)
 
-                review.order_id = order_id
-            review.save()
+        from partners.models import ContractorReview
+
+        review = ContractorReview(
+            contractor=contractor, rating=rating, comment=comment
+        )
+        if order_id and order_id.isdigit():
+            from orders.models import Order
+
+            order = Order.objects.filter(pk=order_id).first()
+            if order:
+                check_order_access(request, order)
+                review.order = order
+        review.save()
+        messages.success(request, "Оценка подрядчика сохранена.")
         return redirect("dashboard:contractor_detail", pk=pk)

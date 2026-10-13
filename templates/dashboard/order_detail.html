@@ -71,43 +71,71 @@
 
     <!-- СОСТАВ ЗАКАЗА -->
     <div class="card mb-4">
-        <div class="card-header bg-white">
-            <h5 class="mb-0"><i class="bi bi-box-seam"></i> Состав заказа</h5>
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-box-seam"></i> Состав заказа — расчёт цены по договору</h5>
+            <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addItemForm">
+                <i class="bi bi-plus"></i> Добавить товар
+            </button>
+        </div>
+        <div class="collapse p-3 bg-light border-bottom" id="addItemForm">
+            <form method="post" action="{% url 'dashboard:add_order_item' order.pk %}" class="row g-2 align-items-end">
+                {% csrf_token %}
+                <div class="col-md-5">
+                    <label class="form-label small mb-1">Товар из каталога</label>
+                    <select name="product" class="form-select form-select-sm" required>
+                        <option value="">— выберите товар —</option>
+                        {% for p in our_products %}
+                            <option value="{{ p.pk }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Количество</label>
+                    <input type="number" name="quantity" class="form-control form-control-sm" value="1" min="1" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Наценка, %</label>
+                    <input type="number" name="markup_percent" class="form-control form-control-sm" value="30" min="0" max="999" step="0.01">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-plus"></i> Добавить в заказ</button>
+                </div>
+            </form>
         </div>
         <div class="card-body p-0">
             {% if order.items.all %}
                 <div class="table-responsive">
-                    <table class="table table-hover mb-0">
+                    <table class="table table-hover mb-0 align-middle calc-table">
                         <thead class="table-light">
                             <tr>
-                                <th style="width: 25%;">Товар</th>
-                                <th style="width: 8%;" class="text-center">Кол-во</th>
-                                <th style="width: 12%;" class="text-end">Цена у подрядчика</th>
-                                <th style="width: 10%;" class="text-end">Наценка, %</th>
-                                <th style="width: 10%;" class="text-end">Наценка, руб</th>
-                                <th style="width: 10%;" class="text-end">Налог, %</th>
-                                <th style="width: 10%;" class="text-end">Налог, руб</th>
-                                <th style="width: 10%;" class="text-end">Итого цена</th>
+                                <th style="width: 22%;">Товар</th>
+                                <th style="width: 6%;" class="text-center">Кол-во</th>
+                                <th style="width: 12%;" class="text-end">Цена подрядчика (за 1 шт.)</th>
+                                <th style="width: 8%;" class="text-end">Наша наценка, %</th>
+                                <th style="width: 9%;" class="text-end">Наценка итого, руб</th>
+                                <th style="width: 8%;" class="text-end">Наценка итого, %</th>
+                                <th style="width: 7%;" class="text-end">Налог, %</th>
+                                <th style="width: 8%;" class="text-end">Налог, руб</th>
+                                <th style="width: 10%;" class="text-end">Итого цена (за 1 шт.)</th>
+                                <th style="width: 7%;" class="text-end">Сумма</th>
                                 <th style="width: 5%;"></th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for item in order.items.all %}
-                            <tr>
+                            <tr class="calc-row"
+                                data-item-pk="{{ item.pk }}"
+                                data-net="{{ item.net_total }}"
+                                data-markup="{{ item.markup_percent }}"
+                                data-tax="{{ item.tax_rate }}"
+                                data-price="{{ item.price }}"
+                                data-qty="{{ item.quantity }}">
                                 <td>
-                                    <!-- Название товара (редактируемое) -->
-                                    <input type="text" class="form-control form-control-sm border-0 bg-transparent" 
-                                           value="{{ item.product.name }}" 
-                                           data-item-id="{{ item.pk }}" 
-                                           data-field="product_name">
-                                    {% if item.variant %}
-                                        <small class="text-muted">({{ item.variant }})</small>
-                                    {% endif %}
-                                    
-                                    <!-- Разворачиваемый состав из компонентов (товаров поставщика) -->
+                                    <span class="fw-semibold">{{ item.product.name }}</span>
+
                                     {% if item.components.all %}
-                                        <button class="btn btn-sm btn-link p-0 mt-1 text-decoration-none" 
-                                                data-bs-toggle="collapse" 
+                                        <button class="btn btn-sm btn-link p-0 mt-1 text-decoration-none"
+                                                data-bs-toggle="collapse"
                                                 data-bs-target="#components-{{ item.pk }}">
                                             <i class="bi bi-chevron-down"></i> Компоненты позиции ({{ item.components.count }})
                                         </button>
@@ -118,7 +146,7 @@
                                                         <tr>
                                                             <th>Товар поставщика</th>
                                                             <th class="text-end">Кол-во</th>
-                                                            <th class="text-end">Цена</th>
+                                                            <th class="text-end">Ориент. цена</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -131,80 +159,95 @@
                                                         {% endfor %}
                                                     </tbody>
                                                 </table>
-                                                <button class="btn btn-sm btn-outline-primary">
-                                                    <i class="bi bi-plus"></i> Добавить компонент
-                                                </button>
+                                                <a class="btn btn-sm btn-outline-primary"
+                                                   href="{% url 'admin:orders_orderitem_change' item.pk %}#orderitemcomponent_set-group">
+                                                    <i class="bi bi-gear"></i> Настроить состав и ориентировочные цены
+                                                </a>
                                             </div>
                                         </div>
                                     {% else %}
                                         <div class="mt-1">
-                                            <button class="btn btn-sm btn-link p-0 text-decoration-none" 
-                                                    data-bs-toggle="collapse" 
-                                                    data-bs-target="#components-{{ item.pk }}">
+                                            <a class="btn btn-sm btn-link p-0 text-decoration-none"
+                                               href="{% url 'admin:orders_orderitem_change' item.pk %}#orderitemcomponent_set-group">
                                                 <i class="bi bi-plus"></i> Добавить компоненты позиции
-                                            </button>
-                                            <div class="collapse mt-2" id="components-{{ item.pk }}">
-                                                <div class="bg-light p-2 rounded">
-                                                    <p class="small text-muted mb-2">Компоненты не добавлены</p>
-                                                    <button class="btn btn-sm btn-outline-primary">
-                                                        <i class="bi bi-plus"></i> Добавить компонент
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            </a>
                                         </div>
                                     {% endif %}
                                 </td>
                                 <td class="text-center">
-                                    <input type="number" class="form-control form-control-sm text-center border-0 bg-transparent" 
-                                           value="{{ item.quantity }}" 
-                                           style="width: 60px;"
-                                           data-item-id="{{ item.pk }}" 
-                                           data-field="quantity">
+                                    <input type="number" name="quantity" class="form-control form-control-sm text-center calc-qty"
+                                           value="{{ item.quantity }}" min="1" max="100000" step="1" style="width: 68px;">
                                 </td>
                                 <td class="text-end">
-                                    <input type="number" class="form-control form-control-sm text-end border-0 bg-transparent" 
-                                           value="{{ item.cost_value|floatformat:0 }}" 
-                                           style="width: 100px; margin-left: auto;"
-                                           data-item-id="{{ item.pk }}" 
-                                           data-field="cost_value">
-                                    <span class="text-muted">₽</span>
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="contractor_cost" class="form-control text-end calc-cost"
+                                               value="{{ item.manual_cost|default_if_none:'' }}"
+                                               placeholder="{{ item.cost_value|floatformat:2 }}" min="0" step="0.01" style="max-width: 105px;">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                    <div class="small text-muted text-end calc-base-hint" data-base="{{ item.cost_value }}">из базы: {{ item.cost_value|floatformat:0 }} ₽</div>
                                 </td>
-                                
-                                <!-- Неизменяемые поля (считаются автоматически) -->
-                                <td class="text-end text-muted">{{ item.markup_percent|default:0 }}%</td>
-                                <td class="text-end text-muted">{{ item.net_markup_amount|default:0|floatformat:0 }} ₽</td>
-                                <td class="text-end text-muted">{{ item.tax_rate|default:0 }}%</td>
-                                <td class="text-end text-muted">{{ item.tax_amount|default:0|floatformat:0 }} ₽</td>
-                                
                                 <td class="text-end">
-                                    <input type="number" class="form-control form-control-sm text-end border-0 bg-transparent fw-bold" 
-                                           value="{{ item.total|floatformat:0 }}" 
-                                           style="width: 100px; margin-left: auto;"
-                                           data-item-id="{{ item.pk }}" 
-                                           data-field="total">
-                                    <span class="text-muted">₽</span>
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="markup_percent" class="form-control text-end calc-markup-pct"
+                                               value="{{ item.markup_percent }}" min="0" max="999" step="0.01" style="max-width: 70px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
                                 </td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-success" title="Сохранить">
-                                        <i class="bi bi-check"></i>
+                                <td class="text-end fw-semibold calc-out-markup-rub">{{ item.net_markup_amount|floatformat:0 }} ₽</td>
+                                <td class="text-end fw-semibold text-success calc-out-markup-pct">{{ item.markup_total_percent }}%</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="tax_rate" class="form-control text-end calc-tax-pct"
+                                               value="{{ item.tax_rate }}" min="0" max="99" step="0.01" style="max-width: 65px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end text-muted calc-out-tax">{{ item.tax_amount|floatformat:0 }} ₽</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="price" class="form-control text-end fw-bold calc-price"
+                                               value="{{ item.price }}" min="0" step="0.01" style="max-width: 105px;"
+                                               title="Можно задать итог вручную — «наценка итого» пересчитается от цены подрядчика">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-bold calc-out-total">{{ item.total|floatformat:0 }} ₽</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-primary calc-save" title="Пересчитать и сохранить позицию">
+                                        <i class="bi bi-save"></i>
                                     </button>
+                                    <form method="post" action="{% url 'dashboard:delete_order_item' item.pk %}"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Удалить позицию \'{{ item.product.name|escapejs }}\' из заказа?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить позицию">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
                             {% endfor %}
                         </tbody>
                         <tfoot class="table-light">
                             <tr>
-                                <td colspan="7" class="text-end fw-bold">Итого:</td>
-                                <td class="text-end fw-bold fs-5 text-primary">{{ order.contract_amount_calculated|floatformat:0 }} ₽</td>
+                                <td colspan="9" class="text-end fw-bold">Итого по договору:</td>
+                                <td class="text-end fw-bold fs-5 text-primary calc-out-grand">{{ order.contract_amount_calculated|floatformat:0 }} ₽</td>
                                 <td></td>
                             </tr>
                         </tfoot>
                     </table>
+                    <div class="p-2 small text-muted border-top">
+                        Формулы: <b>Итого цена = Цена подрядчика × (1 + Наша наценка%)</b>;
+                        <b>Налог = Итого цена − Итого цена / (1 + Налог%)</b> («в том числе»);
+                        <b>Наценка итого% = (Итого цена − Налог − Цена подрядчика) / Цена подрядчика × 100</b>.
+                        Пустое поле «Цены подрядчика» = считать по компонентам из базы. Изменили поле — нажмите <i class="bi bi-save"></i> в строке.
+                    </div>
                 </div>
             {% else %}
                 <div class="p-4 text-center text-muted">
                     <i class="bi bi-box" style="font-size: 32px;"></i>
-                    <p class="mt-2 mb-0">Товары не добавлены</p>
+                    <p class="mt-2 mb-0">Товары не добавлены — нажмите «Добавить товар»</p>
                 </div>
             {% endif %}
         </div>
@@ -326,28 +369,64 @@
         <div class="col-md-4">
             <!-- Документы заказа -->
             <div class="card mb-4">
-                <div class="card-header bg-white">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="bi bi-folder"></i> Документы заказа</h5>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#uploadDocs">
+                        <i class="bi bi-upload"></i> Загрузить
+                    </button>
+                </div>
+                <div class="collapse p-3 bg-light border-bottom" id="uploadDocs">
+                    <form method="post" action="{% url 'dashboard:update_order_documents' order.pk %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-2">
+                            <label class="form-label small mb-1"><i class="bi bi-file-earmark-richtext"></i> Файл КП</label>
+                            <input type="file" name="kp_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1"><i class="bi bi-file-earmark-text"></i> Файл договора</label>
+                            <input type="file" name="contract_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">Ссылка на КП (облако)</label>
+                            <input type="url" name="kp_url" class="form-control form-control-sm" placeholder="https://..." value="{{ order.kp_url }}">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">Ссылка на договор (облако)</label>
+                            <input type="url" name="contract_url" class="form-control form-control-sm" placeholder="https://..." value="{{ order.contract_url }}">
+                        </div>
+                        <div class="small text-muted mb-2">Макс. 20 МБ; pdf, doc(x), xls(x), png, jpg, zip.</div>
+                        <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-upload"></i> Прикрепить</button>
+                    </form>
                 </div>
                 <div class="card-body">
-                    {% if order.brandbook_url or order.contract_url or order.kp_url %}
+                    {% if order.brandbook_url or order.contract_url or order.kp_url or order.contract_file or order.kp_file %}
                         {% if order.brandbook_url %}
-                            <a href="{{ order.brandbook_url }}" target="_blank" class="btn btn-outline-primary btn-sm w-100 mb-2">
-                                <i class="bi bi-palette"></i> Брендбук
+                            <a href="{{ order.brandbook_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                                <i class="bi bi-palette"></i> Брендбук (ссылка)
                             </a>
                         {% endif %}
-                        {% if order.contract_url %}
-                            <a href="{{ order.contract_url }}" target="_blank" class="btn btn-outline-success btn-sm w-100 mb-2">
-                                <i class="bi bi-file-earmark-text"></i> Договор
+                        {% if order.kp_file %}
+                            <a href="{{ order.kp_file.url }}" target="_blank" rel="noopener" class="btn btn-outline-info btn-sm w-100 mb-2">
+                                <i class="bi bi-file-earmark-richtext"></i> КП — файл
                             </a>
                         {% endif %}
                         {% if order.kp_url %}
-                            <a href="{{ order.kp_url }}" target="_blank" class="btn btn-outline-info btn-sm w-100 mb-2">
-                                <i class="bi bi-file-earmark-richtext"></i> КП
+                            <a href="{{ order.kp_url }}" target="_blank" rel="noopener" class="btn btn-outline-info btn-sm w-100 mb-2">
+                                <i class="bi bi-link-45deg"></i> КП — ссылка
+                            </a>
+                        {% endif %}
+                        {% if order.contract_file %}
+                            <a href="{{ order.contract_file.url }}" target="_blank" rel="noopener" class="btn btn-outline-success btn-sm w-100 mb-2">
+                                <i class="bi bi-file-earmark-text"></i> Договор — файл
+                            </a>
+                        {% endif %}
+                        {% if order.contract_url %}
+                            <a href="{{ order.contract_url }}" target="_blank" rel="noopener" class="btn btn-outline-success btn-sm w-100 mb-2">
+                                <i class="bi bi-link-45deg"></i> Договор — ссылка
                             </a>
                         {% endif %}
                     {% else %}
-                        <div class="text-muted text-center small">Документы не загружены</div>
+                        <div class="text-muted text-center small">Документы не загружены — нажмите «Загрузить»</div>
                     {% endif %}
                 </div>
             </div>
@@ -436,7 +515,7 @@
                                 <tr>
                                     <td>
                                         <input type="text" class="form-control form-control-sm border-0 bg-transparent" 
-                                               value="{{ item.description }}"
+                                               value="{{ item.component_name }}"
                                                data-budget-id="{{ item.pk }}"
                                                data-field="description">
                                     </td>
@@ -485,4 +564,94 @@
         *Заказ считается завершённым, если мы имеем все закрывающие документы
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // ===== Живой пересчёт строки «Состав заказа» (в браузере, до сохранения) =====
+    const fmt = (n) => (Math.round(n * 100) / 100).toLocaleString('ru-RU', {maximumFractionDigits: 0});
+    const fmt2 = (n) => (Math.round(n * 100) / 100).toFixed(2);
+
+    function recalcRow(row) {
+        const num = (sel, fallback) => {
+            const el = row.querySelector(sel);
+            const v = parseFloat(el ? el.value : '');
+            return isNaN(v) ? fallback : v;
+        };
+        const base = parseFloat(row.dataset.net) || 0;               // цена подрядчика из базы (за 1 шт.)
+        const costInput = row.querySelector('.calc-cost');
+        const manualCost = costInput && costInput.value !== '' ? parseFloat(costInput.value) : null;
+        const unitCost = manualCost !== null && !isNaN(manualCost) ? manualCost : base;
+        const markupPct = num('.calc-markup-pct', parseFloat(row.dataset.markup) || 0);
+        const taxPct = num('.calc-tax-pct', parseFloat(row.dataset.tax) || 0);
+        const qty = Math.max(1, Math.round(num('.calc-qty', parseInt(row.dataset.qty) || 1)));
+        const priceEl = row.querySelector('.calc-price');
+        let price = parseFloat(priceEl ? priceEl.value : '');
+        if (isNaN(price)) price = unitCost * (1 + markupPct / 100);   // авто-расчёт, если итог не правили руками
+
+        const taxUnit = price - price / (1 + taxPct / 100);           // налог «в том числе» с единицы
+        const markupRubTotal = (price - taxUnit - unitCost) * qty;    // наценка итого в рублях по позиции
+        const markupPctTotal = unitCost > 0 ? ((price - taxUnit - unitCost) / unitCost) * 100 : 0;
+
+        row.querySelector('.calc-out-markup-rub').textContent = fmt(markupRubTotal) + ' ₽';
+        row.querySelector('.calc-out-markup-pct').textContent = fmt2(markupPctTotal) + '%';
+        row.querySelector('.calc-out-tax').textContent = fmt(taxUnit * qty) + ' ₽';
+        row.querySelector('.calc-out-total').textContent = fmt(price * qty) + ' ₽';
+
+        // пересчёт итога по договору
+        let grand = 0;
+        document.querySelectorAll('tr.calc-row').forEach(r => {
+            const t = r.querySelector('.calc-out-total').textContent.replace(/[^\d.,-]/g, '').replace(',', '.');
+            grand += parseFloat(t) || 0;
+        });
+        const grandEl = document.querySelector('.calc-out-grand');
+        if (grandEl) grandEl.textContent = fmt(grand) + ' ₽';
+    }
+
+    document.querySelectorAll('tr.calc-row').forEach(row => {
+        row.addEventListener('input', () => recalcRow(row));
+
+        // кнопка сохранения строки — собираем POST на сервер
+        const saveBtn = row.querySelector('.calc-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                const action = "{% url 'dashboard:update_order_item' 0 %}".replace('/0/update/', '/' + row.dataset.itemPk + '/update/');
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.action = action;
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken';
+                csrf.value = (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1]
+                    || (row.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+                form.appendChild(csrf);
+                ['quantity', 'contractor_cost', 'markup_percent', 'tax_rate', 'price'].forEach(name => {
+                    const el = row.querySelector('[name=' + name + ']');
+                    if (!el) return;
+                    const inp = document.createElement('input');
+                    inp.type = 'hidden'; inp.name = name; inp.value = el.value;
+                    form.appendChild(inp);
+                });
+                document.body.appendChild(form);
+                saveBtn.disabled = true;
+                form.submit();
+            });
+        }
+    });
+
+    // ===== Inline-сохранение платежей бюджета (было бутафорским — стало рабочим) =====
+    document.querySelectorAll('[data-budget-id]').forEach(el => {
+        el.addEventListener('change', () => {
+            const url = "{% url 'dashboard:update_budget_item' 0 %}".replace('/0/update/', '/' + el.dataset.budgetId + '/update/');
+            const body = new URLSearchParams();
+            body.append('field', el.dataset.field);
+            body.append('value', el.value);
+            body.append('csrfmiddlewaretoken', (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || '');
+            fetch(url, {method: 'POST', body, headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => { if (r.ok) { el.classList.add('border-success'); setTimeout(() => el.classList.remove('border-success'), 1200); } })
+                .catch(() => alert('Не удалось сохранить платёж'));
+        });
+    });
+})();
+</script>
 {% endblock %}
