@@ -1,16 +1,17 @@
 ﻿# dashboard/views.py
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 from django.views.generic import ListView
 
-from orders.models import Order, Stage
+from orders.models import Order, Stage, OrderType
 from partners.models import Client, Contractor
 from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse
@@ -191,12 +192,38 @@ class OrderDetailView(LoginRequiredMixin, View):
                 "stage__order_index", "index_in_stage"
             )
 
+        # Фактические платежи заказа + уже созданные из них (для кнопки «Добавить платёж»)
+        transactions = (
+            order.transactions.select_related("budget_item__contractor", "budget_item")
+            .order_by("-date_fact", "-created_at")
+        )
+        paid_total = sum(
+            (t.amount_fact for t in transactions if t.status == "paid"), Decimal("0")
+        )
+        pending_total = sum(
+            (t.amount_fact for t in transactions if t.status == "pending"), Decimal("0")
+        )
+        budget_items_with_tx = set(
+            tx.budget_item_id for tx in transactions if tx.budget_item_id
+        )
+        free_budget_items = [
+            bi
+            for bi in BudgetItem.objects.filter(order=order, flow_type="expense")
+            .select_related("contractor")
+            .order_by("component_name")
+            if bi.pk not in budget_items_with_tx
+        ]
+
         context = {
             "order": order,
             "comments": order.comments.select_related("author").order_by("-created_at"),
             "budget_items": BudgetItem.objects.filter(
                 order=order, flow_type="expense"
             ).select_related("contractor"),
+            "transactions": transactions,
+            "paid_total": paid_total,
+            "pending_total": pending_total,
+            "free_budget_items": free_budget_items,
             "contractors": Contractor.objects.all(),
             "our_products": OurProduct.objects.all().order_by("name"),
             "stages": Stage.objects.all().order_by("order_index"),
@@ -544,6 +571,203 @@ class UpdateBudgetItemView(LoginRequiredMixin, View):
             messages.error(request, "Неизвестное поле платежа.")
 
         return JsonResponse({"status": "ok"})
+
+
+class AddTransactionView(LoginRequiredMixin, View):
+    """POST: добавить фактический платёж по заказу.
+
+    Платёж можно создать «с нуля» (своя сумма/назначение) или подтянуть
+    из статьи бюджета — тогда сумма и подрядчик берутся из статьи, а
+    Transaction привязывается к ней (статья сама посчитает оплату).
+    """
+
+    def post(self, request, pk):
+        from finance.models import BudgetItem, Transaction
+
+        order = get_object_or_404(Order, pk=pk)
+        check_order_access(request, order)
+
+        budget_item = None
+        bi_id = request.POST.get("budget_item")
+        if bi_id and bi_id.isdigit():
+            budget_item = BudgetItem.objects.filter(pk=bi_id, order=order).first()
+
+        description = request.POST.get("description", "").strip()
+        contractor_id = request.POST.get("contractor")
+        amount = parse_amount(request.POST.get("amount"))
+        flow_type = request.POST.get("flow_type", "expense")
+        status = request.POST.get("status", "pending")
+        date_raw = request.POST.get("date_fact", "").strip()
+
+        if budget_item:
+            amount = amount or budget_item.amount_plan
+            description = description or budget_item.component_name
+            if not contractor_id and budget_item.contractor_id:
+                contractor_id = str(budget_item.contractor_id)
+
+        errors = []
+        if not description:
+            errors.append("Укажите назначение платежа.")
+        if amount is None or amount <= Decimal("0"):
+            errors.append("Сумма должна быть положительным числом.")
+        elif amount > Decimal("9999999999"):
+            errors.append("Сумма слишком большая.")
+        if flow_type not in ("income", "expense"):
+            flow_type = "expense"
+        if status not in ("pending", "paid"):
+            status = "pending"
+        if contractor_id and not Contractor.objects.filter(pk=contractor_id).exists():
+            errors.append("Подрядчик не найден.")
+
+        planned_date = None
+        if date_raw:
+            try:
+                planned_date = date.fromisoformat(date_raw)
+            except ValueError:
+                errors.append("Некорректная дата платежа.")
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect("dashboard:order_detail", pk=pk)
+
+        Transaction.objects.create(
+            order=order,
+            budget_item=budget_item,
+            flow_type=flow_type,
+            amount_fact=amount,
+            date_fact=planned_date,
+            status=status,
+            comment=description[:500],
+        )
+        messages.success(request, f"Платёж «{description}» на {amount} ₽ добавлен.")
+        return redirect("dashboard:order_detail", pk=pk)
+
+
+class DeleteTransactionView(LoginRequiredMixin, View):
+    """POST: удалить ошибочный фактический платёж."""
+
+    def post(self, request, pk):
+        from finance.models import Transaction
+
+        tx = get_object_or_404(
+            Transaction.objects.select_related("order"), pk=pk, order__pk=request.POST.get("order_pk")
+        )
+        order_pk = tx.order_id
+        check_order_access(request, tx.order)
+        tx.delete()
+        messages.success(request, "Платёж удалён.")
+        return redirect("dashboard:order_detail", pk=order_pk)
+
+
+class OrderCreateView(LoginRequiredMixin, View):
+    """Страница создания заказа (форма). Все пользователи системы могут создавать."""
+
+    template_name = "dashboard/order_form.html"
+
+    def _form_context(self, request, data=None, errors=None):
+        from products.models import OurProduct  # noqa: F401 (единый импорт контекста)
+
+        return {
+            "clients": Client.objects.order_by("name"),
+            "order_types": OrderType.objects.order_by("name"),
+            "stages": Stage.objects.order_by("order_index"),
+            "today": timezone.localdate(),
+            "data": data or {},
+            "errors": errors or {},
+        }
+
+    def get(self, request):
+        from django.shortcuts import render
+
+        default_data = {"deadline_plan": (timezone.localdate() + timedelta(days=30)).isoformat()}
+        return render(request, self.template_name, self._form_context(request, default_data))
+
+    def post(self, request):
+        from django.shortcuts import render
+        from orders.services import sync_order
+
+        data = {k: request.POST.get(k, "").strip() for k in (
+            "number", "client", "order_type", "manager", "deadline_plan",
+            "contract_number", "prepayment_percent", "brandbook_url",
+            "kp_url", "contract_url",
+        )}
+        errors = {}
+
+        # Номер заказа
+        number = data["number"]
+        if not number:
+            errors["number"] = "Укажите номер заказа."
+        elif Order.objects.filter(number=number).exists():
+            errors["number"] = "Заказ с таким номером уже существует."
+
+        # Заказчик
+        client = None
+        if data["client"].isdigit():
+            client = Client.objects.filter(pk=data["client"]).first()
+        if not client:
+            errors["client"] = "Выберите заказчика."
+
+        # Тип заказа
+        order_type = None
+        if data["order_type"].isdigit():
+            order_type = OrderType.objects.filter(pk=data["order_type"]).first()
+        if not order_type:
+            errors["order_type"] = "Выберите тип заказа (он создаст подэтапы)."
+
+        # Менеджер
+        manager = None
+        if data["manager"].isdigit():
+            manager = User.objects.filter(pk=data["manager"]).first()
+        if not manager:
+            if user_is_manager(request.user):
+                manager = request.user
+            else:
+                manager = request.user
+
+        # Дедлайн
+        deadline_plan = None
+        if data["deadline_plan"]:
+            try:
+                deadline_plan = date.fromisoformat(data["deadline_plan"])
+            except ValueError:
+                errors["deadline_plan"] = "Некорректная дата."
+        else:
+            errors["deadline_plan"] = "Укажите плановый дедлайн."
+
+        # Предоплата
+        prepayment = parse_amount(data["prepayment_percent"] or "0")
+        if prepayment is None or prepayment < 0 or prepayment > 100:
+            errors["prepayment_percent"] = "Процент предоплаты — число от 0 до 100."
+            prepayment = Decimal("0")
+
+        for url_field, label in (("brandbook_url", "брендбук"), ("kp_url", "КП"), ("contract_url", "договор")):
+            raw = data[url_field]
+            if raw and not raw.startswith(("http://", "https://")):
+                errors[url_field] = f"Ссылка на {label} должна начинаться с http(s)://"
+
+        if errors:
+            messages.error(request, "Исправьте ошибки в форме.")
+            return render(request, self.template_name, self._form_context(request, data, errors))
+
+        order = Order(
+            number=number,
+            client=client,
+            order_type=order_type,
+            manager=manager,
+            deadline_plan=deadline_plan,
+            contract_number=data["contract_number"],
+            prepayment_percent=prepayment,
+            brandbook_url=data["brandbook_url"][:500],
+            kp_url=data["kp_url"][:500],
+            contract_url=data["contract_url"][:500],
+        )
+        order.save()  # внутри создадутся подэтапы из шаблона типа заказа
+        sync_order(order, created=False)
+        messages.success(
+            request, f"Заказ #{order.number} создан, подэтапы простроены из шаблона."
+        )
+        return redirect("dashboard:order_detail", pk=order.pk)
 
 
 class ClientDetailView(LoginRequiredMixin, View):

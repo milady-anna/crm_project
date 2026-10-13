@@ -7,7 +7,9 @@ from . import views
 app_name = "dashboard"
 
 urlpatterns = [
-    path("", views.OrderListView.as_view(), name="order_list"),
+    path("orders/", views.OrderListView.as_view(), name="order_list"),
+    path("orders/create/", views.OrderCreateView.as_view(), name="order_create"),
+    path("orders/<int:pk>/", views.OrderDetailView.as_view(), name="order_detail"),
     path("clients/", views.ClientListView.as_view(), name="client_list"),
     path("clients/<int:pk>/", views.ClientDetailView.as_view(), name="client_detail"),
     path("contractors/", views.ContractorListView.as_view(), name="contractor_list"),
@@ -21,7 +23,6 @@ urlpatterns = [
         views.AddContractorReviewView.as_view(),
         name="add_contractor_review",
     ),
-    path("orders/<int:pk>/", views.OrderDetailView.as_view(), name="order_detail"),
     path(
         "orders/<int:pk>/substage/<int:substage_pk>/status/",
         views.UpdateSubstageStatusView.as_view(),
@@ -53,5 +54,13 @@ urlpatterns = [
     path(
         "budget-items/<int:pk>/update/",
         views.UpdateBudgetItemView.as_view(), name="update_budget_item",
+    ),
+    path(
+        "orders/<int:pk>/transactions/add/",
+        views.AddTransactionView.as_view(), name="add_transaction",
+    ),
+    path(
+        "transactions/<int:pk>/delete/",
+        views.DeleteTransactionView.as_view(), name="delete_transaction",
     ),
 ]

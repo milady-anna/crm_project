@@ -53,3 +53,12 @@ def deadline_color(value):
             return "#28a745"  # зелёный (норма)
     except:
         return "#6c757d"  # серый по умолчанию
+
+
+@register.filter(name="multiply")
+def multiply(value, arg):
+    """Перемножает числа (для суммы компонента: кол-во × цена)."""
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return ""

@@ -204,17 +204,29 @@ class Order(models.Model):
         ).exists()
 
     @property
+    def nearest_substage(self):
+        """Ближайший по дедлайну незавершённый подэтап (с этапом и дедлайном).
+
+        Используется в карточках списка заказов: показываем название подэтапа
+        и его ближайший дедлайн вместо «Подэтапы не назначены».
+        """
+        if not hasattr(self, "_nearest_substage_cache"):
+            self._nearest_substage_cache = (
+                self.substages.exclude(deadline__isnull=True)
+                .filter(status__in=["not_started", "in_progress"])
+                .select_related("stage")
+                .order_by("deadline", "stage__order_index", "index_in_stage", "id")
+                .first()
+            )
+        return self._nearest_substage_cache
+
+    @property
     def nearest_deadline(self):
         """Ближайший дедлайн среди незавершённых подэтапов"""
         from django.utils import timezone
 
-        today = timezone.localdate()
-        nearest = (
-            self.substages.filter(status__in=["not_started", "in_progress"])
-            .order_by("deadline")
-            .first()
-        )
-        return nearest.deadline if nearest else today
+        nearest = self.nearest_substage
+        return nearest.deadline if nearest else timezone.localdate()
 
     @property
     def total_expenses(self):

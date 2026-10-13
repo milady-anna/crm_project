@@ -12,6 +12,15 @@
         .sidebar a { color: #adb5bd; text-decoration: none; padding: 10px 15px; display: block; }
         .sidebar a:hover, .sidebar a.active { background-color: #0d6efd; color: white; }
         .main-content { padding: 20px; }
+        /* Таблица расчёта по договору: фиксированная ширина колонок,
+           чтобы при разворачивании компонентов поля не «съезжали» */
+        .calc-table { table-layout: fixed; min-width: 1360px; }
+        .calc-table th, .calc-table td { vertical-align: middle; overflow: hidden; }
+        .calc-table td { white-space: normal; word-break: break-word; }
+        .calc-table .num-cell { white-space: nowrap; text-align: end; }
+        /* Компоненты позиции — на всю ширину карточки (colspan по всей таблице) */
+        .components-row > td { background-color: #f8f9fa; padding: 0.75rem 1rem !important; }
+        .components-row .comp-table { max-width: 720px; }
     </style>
 </head>
 <body>

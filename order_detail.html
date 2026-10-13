@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Заказ #T-001</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .sidebar { min-height: 100vh; background-color: #212529; color: white; }
+        .sidebar a { color: #adb5bd; text-decoration: none; padding: 10px 15px; display: block; }
+        .sidebar a:hover, .sidebar a.active { background-color: #0d6efd; color: white; }
+        .main-content { padding: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Боковое меню -->
+            <nav class="col-md-2 d-none d-md-block sidebar p-0">
+                <div class="p-3 text-center border-bottom border-secondary">
+                    <h4 class="mb-0">CRM ПроМерч</h4>
+                    <small class="text-muted">testmgr</small>
+                </div>
+                <div class="mt-3">
+                    <a href="/" class="">
+                        <i class="bi bi-list-check"></i> Список заказов
+                    </a>
+                    <a href="/clients/" class="">
+                        <i class="bi bi-people"></i> Клиенты
+                    </a>
+                    <a href="/contractors/" class="">
+                        <i class="bi bi-truck"></i> Подрядчики
+                    </a>
+                    <hr class="border-secondary">
+                    <form action="/accounts/logout/" method="post" class="px-3">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                        <button type="submit" class="btn btn-outline-light btn-sm w-100">
+                            <i class="bi bi-box-arrow-right"></i> Выйти
+                        </button>
+                    </form>
+                </div>
+            </nav>
+
+            <!-- Основной контент -->
+            <main class="col-md-10 ms-sm-auto main-content">
+                
+                
+                
+<div class="container-fluid py-4">
+    <!-- Хлебные крошки -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Список заказов</a></li>
+            <li class="breadcrumb-item active">Заказ #T-001</li>
+        </ol>
+    </nav>
+
+    <!-- ШАПКА ЗАКАЗА -->
+    <div class="card mb-4 " 
+         style="border-left: 5px solid #fd7e14;">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center flex-wrap mb-2">
+                        <h2 class="mb-0  fw-bold me-3">
+                            Заказ #T-001
+                        </h2>
+                        <span class="fs-4 text-muted">для</span>
+                        <a href="/admin/partners/client/1/change/" 
+                           class="text-decoration-none fw-bold fs-4 text-primary ms-2">
+                            Тест клиент
+                        </a>
+                    </div>
+                    
+                        <div class="text-muted small">
+                            <i class="bi bi-person"></i> Менеджер: testmgr
+                        </div>
+                    
+                </div>
+                <div class="col-md-6">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="text-muted small">Сумма по договору</div>
+                            <div class="fs-5 fw-bold text-primary">4220 ₽</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-muted small">Сумма расходов</div>
+                            <div class="fs-5 text-danger">0 ₽</div>
+                        </div>
+                    </div>
+                    <div class="row text-center mt-2">
+                        <div class="col-6">
+                            <div class="p-2 bg-light rounded">
+                                <div class="text-muted small">Дата по договору</div>
+                                <div class="fw-bold fs-5 ">
+                                    23.10.2026
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-2 bg-light rounded">
+                                <div class="text-muted small">Фактическая дата</div>
+                                <div class="fw-bold fs-5">
+                                    —
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- СОСТАВ ЗАКАЗА -->
+    <div class="card mb-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-box-seam"></i> Состав заказа — расчёт цены по договору</h5>
+            <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addItemForm">
+                <i class="bi bi-plus"></i> Добавить товар
+            </button>
+        </div>
+        <div class="collapse p-3 bg-light border-bottom" id="addItemForm">
+            <form method="post" action="/orders/1/items/add/" class="row g-2 align-items-end">
+                <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                <div class="col-md-5">
+                    <label class="form-label small mb-1">Товар из каталога</label>
+                    <select name="product" class="form-select form-select-sm" required>
+                        <option value="">— выберите товар —</option>
+                        
+                            <option value="1">Тест мерч</option>
+                        
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Количество</label>
+                    <input type="number" name="quantity" class="form-control form-control-sm" value="1" min="1" required>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Наценка, %</label>
+                    <input type="number" name="markup_percent" class="form-control form-control-sm" value="30" min="0" max="999" step="0.01">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-plus"></i> Добавить в заказ</button>
+                </div>
+            </form>
+        </div>
+        <div class="card-body p-0">
+            
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle calc-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 22%;">Товар</th>
+                                <th style="width: 6%;" class="text-center">Кол-во</th>
+                                <th style="width: 12%;" class="text-end">Цена подрядчика (за 1 шт.)</th>
+                                <th style="width: 8%;" class="text-end">Наша наценка, %</th>
+                                <th style="width: 9%;" class="text-end">Наценка итого, руб</th>
+                                <th style="width: 8%;" class="text-end">Наценка итого, %</th>
+                                <th style="width: 7%;" class="text-end">Налог, %</th>
+                                <th style="width: 8%;" class="text-end">Налог, руб</th>
+                                <th style="width: 10%;" class="text-end">Итого цена (за 1 шт.)</th>
+                                <th style="width: 7%;" class="text-end">Сумма</th>
+                                <th style="width: 5%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr class="calc-row"
+                                data-item-pk="1"
+                                data-net="2000,00"
+                                data-markup="30,00"
+                                data-tax="20,00"
+                                data-price="260,00"
+                                data-qty="10">
+                                <td>
+                                    <span class="fw-semibold">Тест мерч</span>
+
+                                    
+                                        <button class="btn btn-sm btn-link p-0 mt-1 text-decoration-none"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#components-1">
+                                            <i class="bi bi-chevron-down"></i> Компоненты позиции (1)
+                                        </button>
+                                        <div class="collapse mt-2" id="components-1">
+                                            <div class="bg-light p-2 rounded">
+                                                <table class="table table-sm mb-2">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Товар поставщика</th>
+                                                            <th class="text-end">Кол-во</th>
+                                                            <th class="text-end">Ориент. цена</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        
+                                                        <tr>
+                                                            <td>Печать</td>
+                                                            <td class="text-end">2,00</td>
+                                                            <td class="text-end">100 ₽</td>
+                                                        </tr>
+                                                        
+                                                    </tbody>
+                                                </table>
+                                                <a class="btn btn-sm btn-outline-primary"
+                                                   href="/admin/orders/orderitem/1/change/#orderitemcomponent_set-group">
+                                                    <i class="bi bi-gear"></i> Настроить состав и ориентировочные цены
+                                                </a>
+                                            </div>
+                                        </div>
+                                    
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" name="quantity" class="form-control form-control-sm text-center calc-qty"
+                                           value="10" min="1" max="100000" step="1" style="width: 68px;">
+                                </td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="contractor_cost" class="form-control text-end calc-cost"
+                                               value=""
+                                               placeholder="200,00" min="0" step="0.01" style="max-width: 105px;">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                    <div class="small text-muted text-end calc-base-hint" data-base="200,00">из базы: 200 ₽</div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="markup_percent" class="form-control text-end calc-markup-pct"
+                                               value="30,00" min="0" max="999" step="0.01" style="max-width: 70px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-semibold calc-out-markup-rub">600 ₽</td>
+                                <td class="text-end fw-semibold text-success calc-out-markup-pct">8,33%</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="tax_rate" class="form-control text-end calc-tax-pct"
+                                               value="20,00" min="0" max="99" step="0.01" style="max-width: 65px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end text-muted calc-out-tax">433 ₽</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="price" class="form-control text-end fw-bold calc-price"
+                                               value="260,00" min="0" step="0.01" style="max-width: 105px;"
+                                               title="Можно задать итог вручную — «наценка итого» пересчитается от цены подрядчика">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-bold calc-out-total">2600 ₽</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-primary calc-save" title="Пересчитать и сохранить позицию">
+                                        <i class="bi bi-save"></i>
+                                    </button>
+                                    <form method="post" action="/order-items/1/delete/"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Удалить позицию \'Тест мерч\' из заказа?');">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить позицию">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            
+                            <tr class="calc-row"
+                                data-item-pk="5"
+                                data-net="400,00"
+                                data-markup="35,00"
+                                data-tax="20,00"
+                                data-price="270,00"
+                                data-qty="2">
+                                <td>
+                                    <span class="fw-semibold">Тест мерч</span>
+
+                                    
+                                        <button class="btn btn-sm btn-link p-0 mt-1 text-decoration-none"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#components-5">
+                                            <i class="bi bi-chevron-down"></i> Компоненты позиции (1)
+                                        </button>
+                                        <div class="collapse mt-2" id="components-5">
+                                            <div class="bg-light p-2 rounded">
+                                                <table class="table table-sm mb-2">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Товар поставщика</th>
+                                                            <th class="text-end">Кол-во</th>
+                                                            <th class="text-end">Ориент. цена</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        
+                                                        <tr>
+                                                            <td>Печать</td>
+                                                            <td class="text-end">2,00</td>
+                                                            <td class="text-end">100 ₽</td>
+                                                        </tr>
+                                                        
+                                                    </tbody>
+                                                </table>
+                                                <a class="btn btn-sm btn-outline-primary"
+                                                   href="/admin/orders/orderitem/5/change/#orderitemcomponent_set-group">
+                                                    <i class="bi bi-gear"></i> Настроить состав и ориентировочные цены
+                                                </a>
+                                            </div>
+                                        </div>
+                                    
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" name="quantity" class="form-control form-control-sm text-center calc-qty"
+                                           value="2" min="1" max="100000" step="1" style="width: 68px;">
+                                </td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="contractor_cost" class="form-control text-end calc-cost"
+                                               value=""
+                                               placeholder="200,00" min="0" step="0.01" style="max-width: 105px;">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                    <div class="small text-muted text-end calc-base-hint" data-base="200,00">из базы: 200 ₽</div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="markup_percent" class="form-control text-end calc-markup-pct"
+                                               value="35,00" min="0" max="999" step="0.01" style="max-width: 70px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-semibold calc-out-markup-rub">140 ₽</td>
+                                <td class="text-end fw-semibold text-success calc-out-markup-pct">12,50%</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="tax_rate" class="form-control text-end calc-tax-pct"
+                                               value="20,00" min="0" max="99" step="0.01" style="max-width: 65px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end text-muted calc-out-tax">90 ₽</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="price" class="form-control text-end fw-bold calc-price"
+                                               value="270,00" min="0" step="0.01" style="max-width: 105px;"
+                                               title="Можно задать итог вручную — «наценка итого» пересчитается от цены подрядчика">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-bold calc-out-total">540 ₽</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-primary calc-save" title="Пересчитать и сохранить позицию">
+                                        <i class="bi bi-save"></i>
+                                    </button>
+                                    <form method="post" action="/order-items/5/delete/"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Удалить позицию \'Тест мерч\' из заказа?');">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить позицию">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            
+                            <tr class="calc-row"
+                                data-item-pk="6"
+                                data-net="400,00"
+                                data-markup="35,00"
+                                data-tax="20,00"
+                                data-price="270,00"
+                                data-qty="2">
+                                <td>
+                                    <span class="fw-semibold">Тест мерч</span>
+
+                                    
+                                        <button class="btn btn-sm btn-link p-0 mt-1 text-decoration-none"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#components-6">
+                                            <i class="bi bi-chevron-down"></i> Компоненты позиции (1)
+                                        </button>
+                                        <div class="collapse mt-2" id="components-6">
+                                            <div class="bg-light p-2 rounded">
+                                                <table class="table table-sm mb-2">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Товар поставщика</th>
+                                                            <th class="text-end">Кол-во</th>
+                                                            <th class="text-end">Ориент. цена</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        
+                                                        <tr>
+                                                            <td>Печать</td>
+                                                            <td class="text-end">2,00</td>
+                                                            <td class="text-end">100 ₽</td>
+                                                        </tr>
+                                                        
+                                                    </tbody>
+                                                </table>
+                                                <a class="btn btn-sm btn-outline-primary"
+                                                   href="/admin/orders/orderitem/6/change/#orderitemcomponent_set-group">
+                                                    <i class="bi bi-gear"></i> Настроить состав и ориентировочные цены
+                                                </a>
+                                            </div>
+                                        </div>
+                                    
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" name="quantity" class="form-control form-control-sm text-center calc-qty"
+                                           value="2" min="1" max="100000" step="1" style="width: 68px;">
+                                </td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="contractor_cost" class="form-control text-end calc-cost"
+                                               value=""
+                                               placeholder="200,00" min="0" step="0.01" style="max-width: 105px;">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                    <div class="small text-muted text-end calc-base-hint" data-base="200,00">из базы: 200 ₽</div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="markup_percent" class="form-control text-end calc-markup-pct"
+                                               value="35,00" min="0" max="999" step="0.01" style="max-width: 70px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-semibold calc-out-markup-rub">140 ₽</td>
+                                <td class="text-end fw-semibold text-success calc-out-markup-pct">12,50%</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="tax_rate" class="form-control text-end calc-tax-pct"
+                                               value="20,00" min="0" max="99" step="0.01" style="max-width: 65px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end text-muted calc-out-tax">90 ₽</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="price" class="form-control text-end fw-bold calc-price"
+                                               value="270,00" min="0" step="0.01" style="max-width: 105px;"
+                                               title="Можно задать итог вручную — «наценка итого» пересчитается от цены подрядчика">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-bold calc-out-total">540 ₽</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-primary calc-save" title="Пересчитать и сохранить позицию">
+                                        <i class="bi bi-save"></i>
+                                    </button>
+                                    <form method="post" action="/order-items/6/delete/"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Удалить позицию \'Тест мерч\' из заказа?');">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить позицию">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            
+                            <tr class="calc-row"
+                                data-item-pk="7"
+                                data-net="400,00"
+                                data-markup="35,00"
+                                data-tax="20,00"
+                                data-price="270,00"
+                                data-qty="2">
+                                <td>
+                                    <span class="fw-semibold">Тест мерч</span>
+
+                                    
+                                        <button class="btn btn-sm btn-link p-0 mt-1 text-decoration-none"
+                                                data-bs-toggle="collapse"
+                                                data-bs-target="#components-7">
+                                            <i class="bi bi-chevron-down"></i> Компоненты позиции (1)
+                                        </button>
+                                        <div class="collapse mt-2" id="components-7">
+                                            <div class="bg-light p-2 rounded">
+                                                <table class="table table-sm mb-2">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Товар поставщика</th>
+                                                            <th class="text-end">Кол-во</th>
+                                                            <th class="text-end">Ориент. цена</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        
+                                                        <tr>
+                                                            <td>Печать</td>
+                                                            <td class="text-end">2,00</td>
+                                                            <td class="text-end">100 ₽</td>
+                                                        </tr>
+                                                        
+                                                    </tbody>
+                                                </table>
+                                                <a class="btn btn-sm btn-outline-primary"
+                                                   href="/admin/orders/orderitem/7/change/#orderitemcomponent_set-group">
+                                                    <i class="bi bi-gear"></i> Настроить состав и ориентировочные цены
+                                                </a>
+                                            </div>
+                                        </div>
+                                    
+                                </td>
+                                <td class="text-center">
+                                    <input type="number" name="quantity" class="form-control form-control-sm text-center calc-qty"
+                                           value="2" min="1" max="100000" step="1" style="width: 68px;">
+                                </td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="contractor_cost" class="form-control text-end calc-cost"
+                                               value=""
+                                               placeholder="200,00" min="0" step="0.01" style="max-width: 105px;">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                    <div class="small text-muted text-end calc-base-hint" data-base="200,00">из базы: 200 ₽</div>
+                                </td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="markup_percent" class="form-control text-end calc-markup-pct"
+                                               value="35,00" min="0" max="999" step="0.01" style="max-width: 70px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-semibold calc-out-markup-rub">140 ₽</td>
+                                <td class="text-end fw-semibold text-success calc-out-markup-pct">12,50%</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="tax_rate" class="form-control text-end calc-tax-pct"
+                                               value="20,00" min="0" max="99" step="0.01" style="max-width: 65px;">
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </td>
+                                <td class="text-end text-muted calc-out-tax">90 ₽</td>
+                                <td class="text-end">
+                                    <div class="input-group input-group-sm justify-content-end">
+                                        <input type="number" name="price" class="form-control text-end fw-bold calc-price"
+                                               value="270,00" min="0" step="0.01" style="max-width: 105px;"
+                                               title="Можно задать итог вручную — «наценка итого» пересчитается от цены подрядчика">
+                                        <span class="input-group-text">₽</span>
+                                    </div>
+                                </td>
+                                <td class="text-end fw-bold calc-out-total">540 ₽</td>
+                                <td class="text-end text-nowrap">
+                                    <button type="button" class="btn btn-sm btn-primary calc-save" title="Пересчитать и сохранить позицию">
+                                        <i class="bi bi-save"></i>
+                                    </button>
+                                    <form method="post" action="/order-items/7/delete/"
+                                          class="d-inline"
+                                          onsubmit="return confirm('Удалить позицию \'Тест мерч\' из заказа?');">
+                                        <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить позицию">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="9" class="text-end fw-bold">Итого по договору:</td>
+                                <td class="text-end fw-bold fs-5 text-primary calc-out-grand">4220 ₽</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                    <div class="p-2 small text-muted border-top">
+                        Формулы: <b>Итого цена = Цена подрядчика × (1 + Наша наценка%)</b>;
+                        <b>Налог = Итого цена − Итого цена / (1 + Налог%)</b> («в том числе»);
+                        <b>Наценка итого% = (Итого цена − Налог − Цена подрядчика) / Цена подрядчика × 100</b>.
+                        Пустое поле «Цены подрядчика» = считать по компонентам из базы. Изменили поле — нажмите <i class="bi bi-save"></i> в строке.
+                    </div>
+                </div>
+            
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- ЛЕВАЯ КОЛОНКА: Этапы + Подэтапы -->
+        <div class="col-md-8">
+            <!-- ЭТАПЫ КАК ТАБЫ -->
+            
+            <div class="card mb-4">
+                <div class="card-body p-0">
+                    <div class="d-flex border-bottom">
+                        
+                        <a href="?stage=1" 
+                           class="flex-fill text-decoration-none text-center py-3 px-2 bg-light text-dark"
+                           style="cursor: pointer; border-right: 1px solid #dee2e6; flex: 1;">
+                            <div class="fw-semibold small">Тест</div>
+                            
+                        </a>
+                        
+                    </div>
+                </div>
+            </div>
+            
+
+            <!-- ПОДЭТАПЫ -->
+            <div class="card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-check"></i> 
+                        
+                            Подэтапы
+                        
+                    </h5>
+                    <span class="badge bg-secondary">0</span>
+                </div>
+                <div class="card-body p-0">
+                    
+                        <div class="p-4 text-center text-muted">
+                            <i class="bi bi-inbox" style="font-size: 32px;"></i>
+                            <p class="mt-2 mb-0">
+                                
+                                    Подэтапы не созданы
+                                
+                            </p>
+                        </div>
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА -->
+        <div class="col-md-4">
+            <!-- Документы заказа -->
+            <div class="card mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-folder"></i> Документы заказа</h5>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#uploadDocs">
+                        <i class="bi bi-upload"></i> Загрузить
+                    </button>
+                </div>
+                <div class="collapse p-3 bg-light border-bottom" id="uploadDocs">
+                    <form method="post" action="/orders/1/documents/" enctype="multipart/form-data">
+                        <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                        <div class="mb-2">
+                            <label class="form-label small mb-1"><i class="bi bi-file-earmark-richtext"></i> Файл КП</label>
+                            <input type="file" name="kp_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1"><i class="bi bi-file-earmark-text"></i> Файл договора</label>
+                            <input type="file" name="contract_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.zip">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">Ссылка на КП (облако)</label>
+                            <input type="url" name="kp_url" class="form-control form-control-sm" placeholder="https://..." value="">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">Ссылка на договор (облако)</label>
+                            <input type="url" name="contract_url" class="form-control form-control-sm" placeholder="https://..." value="">
+                        </div>
+                        <div class="small text-muted mb-2">Макс. 20 МБ; pdf, doc(x), xls(x), png, jpg, zip.</div>
+                        <button type="submit" class="btn btn-sm btn-primary w-100"><i class="bi bi-upload"></i> Прикрепить</button>
+                    </form>
+                </div>
+                <div class="card-body">
+                    
+                        <div class="text-muted text-center small">Документы не загружены — нажмите «Загрузить»</div>
+                    
+                </div>
+            </div>
+
+            <!-- Комментарии -->
+            <div class="card mb-4">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-chat-dots"></i> Комментарии</h5>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="collapse" data-bs-target="#commentsSection">
+                        <i class="bi bi-eye"></i> Посмотреть
+                    </button>
+                </div>
+                <div class="collapse" id="commentsSection">
+                    <div class="card-body">
+                        <form method="post" action="/orders/1/comment/" class="mb-3">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                            <div class="mb-2">
+                                <textarea name="text" class="form-control" rows="3" 
+                                          placeholder="Написать комментарий..." required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <i class="bi bi-send"></i> Добавить комментарий
+                            </button>
+                        </form>
+
+                        <div style="max-height: 300px; overflow-y: auto;">
+                            
+                            <div class="text-center text-muted py-3">
+                                <p class="mb-0 small">Комментариев пока нет</p>
+                            </div>
+                            
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Бюджет заказа -->
+            <div class="card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-cash-stack"></i> Бюджет заказа</h5>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addPayment">
+                        <i class="bi bi-plus"></i> Новый платеж
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="collapse p-3 bg-light" id="addPayment">
+                        <form method="post" action="/orders/1/budget/">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="oMQ1wiU1aauedAtxJHVlBDkSHRNYYo3JHThHpwngBJFE8GeZTZh1U9JkB3qFIgBb">
+                            <div class="mb-2">
+                                <input type="text" name="description" class="form-control" placeholder="Назначение платежа" required>
+                            </div>
+                            <div class="mb-2">
+                                <select name="contractor" class="form-select">
+                                    <option value="">Подрядчик</option>
+                                    
+                                </select>
+                            </div>
+                            <div class="mb-2">
+                                <input type="number" name="amount" class="form-control" placeholder="Сумма" step="0.01" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-sm w-100">Добавить</button>
+                        </form>
+                    </div>
+
+                    
+                        <div class="p-3 text-center text-muted small">
+                            Платежи не добавлены
+                        </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- СНОСКА -->
+    <div class="mt-4 text-muted small fst-italic">
+        *Заказ считается завершённым, если мы имеем все закрывающие документы
+    </div>
+</div>
+
+            </main>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+<script>
+(function () {
+    // ===== Живой пересчёт строки «Состав заказа» (в браузере, до сохранения) =====
+    const fmt = (n) => (Math.round(n * 100) / 100).toLocaleString('ru-RU', {maximumFractionDigits: 0});
+    const fmt2 = (n) => (Math.round(n * 100) / 100).toFixed(2);
+
+    function recalcRow(row) {
+        const num = (sel, fallback) => {
+            const el = row.querySelector(sel);
+            const v = parseFloat(el ? el.value : '');
+            return isNaN(v) ? fallback : v;
+        };
+        const base = parseFloat(row.dataset.net) || 0;               // цена подрядчика из базы (за 1 шт.)
+        const costInput = row.querySelector('.calc-cost');
+        const manualCost = costInput && costInput.value !== '' ? parseFloat(costInput.value) : null;
+        const unitCost = manualCost !== null && !isNaN(manualCost) ? manualCost : base;
+        const markupPct = num('.calc-markup-pct', parseFloat(row.dataset.markup) || 0);
+        const taxPct = num('.calc-tax-pct', parseFloat(row.dataset.tax) || 0);
+        const qty = Math.max(1, Math.round(num('.calc-qty', parseInt(row.dataset.qty) || 1)));
+        const priceEl = row.querySelector('.calc-price');
+        let price = parseFloat(priceEl ? priceEl.value : '');
+        if (isNaN(price)) price = unitCost * (1 + markupPct / 100);   // авто-расчёт, если итог не правили руками
+
+        const taxUnit = price - price / (1 + taxPct / 100);           // налог «в том числе» с единицы
+        const markupRubTotal = (price - taxUnit - unitCost) * qty;    // наценка итого в рублях по позиции
+        const markupPctTotal = unitCost > 0 ? ((price - taxUnit - unitCost) / unitCost) * 100 : 0;
+
+        row.querySelector('.calc-out-markup-rub').textContent = fmt(markupRubTotal) + ' ₽';
+        row.querySelector('.calc-out-markup-pct').textContent = fmt2(markupPctTotal) + '%';
+        row.querySelector('.calc-out-tax').textContent = fmt(taxUnit * qty) + ' ₽';
+        row.querySelector('.calc-out-total').textContent = fmt(price * qty) + ' ₽';
+
+        // пересчёт итога по договору
+        let grand = 0;
+        document.querySelectorAll('tr.calc-row').forEach(r => {
+            const t = r.querySelector('.calc-out-total').textContent.replace(/[^\d.,-]/g, '').replace(',', '.');
+            grand += parseFloat(t) || 0;
+        });
+        const grandEl = document.querySelector('.calc-out-grand');
+        if (grandEl) grandEl.textContent = fmt(grand) + ' ₽';
+    }
+
+    document.querySelectorAll('tr.calc-row').forEach(row => {
+        row.addEventListener('input', () => recalcRow(row));
+
+        // кнопка сохранения строки — собираем POST на сервер
+        const saveBtn = row.querySelector('.calc-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                const action = "/order-items/0/update/".replace('/0/update/', '/' + row.dataset.itemPk + '/update/');
+                const form = document.createElement('form');
+                form.method = 'post';
+                form.action = action;
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden'; csrf.name = 'csrfmiddlewaretoken';
+                csrf.value = (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1]
+                    || (row.querySelector('[name=csrfmiddlewaretoken]') || {}).value || '';
+                form.appendChild(csrf);
+                ['quantity', 'contractor_cost', 'markup_percent', 'tax_rate', 'price'].forEach(name => {
+                    const el = row.querySelector('[name=' + name + ']');
+                    if (!el) return;
+                    const inp = document.createElement('input');
+                    inp.type = 'hidden'; inp.name = name; inp.value = el.value;
+                    form.appendChild(inp);
+                });
+                document.body.appendChild(form);
+                saveBtn.disabled = true;
+                form.submit();
+            });
+        }
+    });
+
+    // ===== Inline-сохранение платежей бюджета (было бутафорским — стало рабочим) =====
+    document.querySelectorAll('[data-budget-id]').forEach(el => {
+        el.addEventListener('change', () => {
+            const url = "/budget-items/0/update/".replace('/0/update/', '/' + el.dataset.budgetId + '/update/');
+            const body = new URLSearchParams();
+            body.append('field', el.dataset.field);
+            body.append('value', el.value);
+            body.append('csrfmiddlewaretoken', (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || '');
+            fetch(url, {method: 'POST', body, headers: {'X-Requested-With': 'XMLHttpRequest'}})
+                .then(r => { if (r.ok) { el.classList.add('border-success'); setTimeout(() => el.classList.remove('border-success'), 1200); } })
+                .catch(() => alert('Не удалось сохранить платёж'));
+        });
+    });
+})();
+</script>
+
+</body>
+</html>
