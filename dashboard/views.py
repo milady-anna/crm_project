@@ -195,10 +195,9 @@ class OrderDetailView(LoginRequiredMixin, View):
             )
 
         # Фактические платежи заказа + уже созданные из них (для кнопки «Добавить платёж»)
-        transactions = (
-            order.transactions.select_related("budget_item__contractor", "budget_item")
-            .order_by("-date_fact", "-created_at")
-        )
+        transactions = order.transactions.select_related(
+            "budget_item__contractor", "budget_item"
+        ).order_by("-date_fact", "-created_at")
         paid_total = sum(
             (t.amount_fact for t in transactions if t.status == "paid"), Decimal("0")
         )
@@ -254,9 +253,10 @@ class UpdateSubstageStatusView(LoginRequiredMixin, View):
                 substage.completed_date = None
             substage.save()  # внутри save() уже пересчитывается этап заказа
 
-            wants_json = (
-                request.headers.get("X-Requested-With") == "XMLHttpRequest"
-                or "application/json" in request.headers.get("Accept", "")
+            wants_json = request.headers.get(
+                "X-Requested-With"
+            ) == "XMLHttpRequest" or "application/json" in request.headers.get(
+                "Accept", ""
             )
             if wants_json:
                 return JsonResponse(
@@ -380,7 +380,9 @@ class UpdateOrderItemView(LoginRequiredMixin, View):
             if cost_raw.strip() == "":
                 updates["manual_cost"] = None
             else:
-                value = dec_field("contractor_cost", "Цена подрядчика", max_value=9999999)
+                value = dec_field(
+                    "contractor_cost", "Цена подрядчика", max_value=9999999
+                )
                 if value is not None:
                     updates["manual_cost"] = value
 
@@ -515,7 +517,10 @@ class UpdateOrderDocumentsView(LoginRequiredMixin, View):
                     setattr(order, field, cleaned)
                     updated.append(label)
 
-        for field, label in (("contract_url", "ссылка на договор"), ("kp_url", "ссылка на КП")):
+        for field, label in (
+            ("contract_url", "ссылка на договор"),
+            ("kp_url", "ссылка на КП"),
+        ):
             raw = request.POST.get(field)
             if raw is not None and raw.strip():
                 value = raw.strip()
@@ -531,8 +536,12 @@ class UpdateOrderDocumentsView(LoginRequiredMixin, View):
             return redirect("dashboard:order_detail", pk=pk)
 
         if updated:
-            order.save(update_fields=["contract_file", "kp_file", "contract_url", "kp_url"])
-            messages.success(request, "Документы обновлены: " + ", ".join(updated) + ".")
+            order.save(
+                update_fields=["contract_file", "kp_file", "contract_url", "kp_url"]
+            )
+            messages.success(
+                request, "Документы обновлены: " + ", ".join(updated) + "."
+            )
         else:
             messages.error(request, "Не выбран ни файл, ни ссылка для загрузки.")
         return redirect("dashboard:order_detail", pk=pk)
@@ -653,7 +662,9 @@ class DeleteTransactionView(LoginRequiredMixin, View):
         from finance.models import Transaction
 
         tx = get_object_or_404(
-            Transaction.objects.select_related("order"), pk=pk, order__pk=request.POST.get("order_pk")
+            Transaction.objects.select_related("order"),
+            pk=pk,
+            order__pk=request.POST.get("order_pk"),
         )
         order_pk = tx.order_id
         check_order_access(request, tx.order)
@@ -685,18 +696,32 @@ class OrderCreateView(LoginRequiredMixin, View):
     def get(self, request):
         from django.shortcuts import render
 
-        default_data = {"deadline_plan": (timezone.localdate() + timedelta(days=30)).isoformat()}
-        return render(request, self.template_name, self._form_context(request, default_data))
+        default_data = {
+            "deadline_plan": (timezone.localdate() + timedelta(days=30)).isoformat()
+        }
+        return render(
+            request, self.template_name, self._form_context(request, default_data)
+        )
 
     def post(self, request):
         from django.shortcuts import render
         from orders.services import sync_order
 
-        data = {k: request.POST.get(k, "").strip() for k in (
-            "number", "client", "order_type", "manager", "deadline_plan",
-            "contract_number", "prepayment_percent", "brandbook_url",
-            "kp_url", "contract_url",
-        )}
+        data = {
+            k: request.POST.get(k, "").strip()
+            for k in (
+                "number",
+                "client",
+                "order_type",
+                "manager",
+                "deadline_plan",
+                "contract_number",
+                "prepayment_percent",
+                "brandbook_url",
+                "kp_url",
+                "contract_url",
+            )
+        }
         errors = {}
 
         # Номер заказа
@@ -746,14 +771,20 @@ class OrderCreateView(LoginRequiredMixin, View):
             errors["prepayment_percent"] = "Процент предоплаты — число от 0 до 100."
             prepayment = Decimal("0")
 
-        for url_field, label in (("brandbook_url", "брендбук"), ("kp_url", "КП"), ("contract_url", "договор")):
+        for url_field, label in (
+            ("brandbook_url", "брендбук"),
+            ("kp_url", "КП"),
+            ("contract_url", "договор"),
+        ):
             raw = data[url_field]
             if raw and not raw.startswith(("http://", "https://")):
                 errors[url_field] = f"Ссылка на {label} должна начинаться с http(s)://"
 
         if errors:
             messages.error(request, "Исправьте ошибки в форме.")
-            return render(request, self.template_name, self._form_context(request, data, errors))
+            return render(
+                request, self.template_name, self._form_context(request, data, errors)
+            )
 
         order = Order(
             number=number,
@@ -907,9 +938,7 @@ class AddContractorReviewView(LoginRequiredMixin, View):
 
         from partners.models import ContractorReview
 
-        review = ContractorReview(
-            contractor=contractor, rating=rating, comment=comment
-        )
+        review = ContractorReview(contractor=contractor, rating=rating, comment=comment)
         if order_id and order_id.isdigit():
             from orders.models import Order
 
@@ -920,3 +949,62 @@ class AddContractorReviewView(LoginRequiredMixin, View):
         review.save()
         messages.success(request, "Оценка подрядчика сохранена.")
         return redirect("dashboard:contractor_detail", pk=pk)
+
+
+from django.forms import inlineformset_factory
+
+
+class OrderCreateView(LoginRequiredMixin, View):
+    """Создание нового заказа"""
+
+    template_name = "dashboard/order_create.html"
+
+    def get(self, request):
+        form = OrderCreateForm()
+        formset = OrderItemFormSet()
+
+        context = {
+            "form": form,
+            "formset": formset,
+        }
+        from django.shortcuts import render
+
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        form = OrderCreateForm(request.POST)
+        formset = OrderItemFormSet(request.POST)
+
+        if form.is_valid() and formset.is_valid():
+            # Сохраняем заказ
+            order = form.save(commit=False)
+
+            # Если менеджер не выбран — ставим текущего пользователя
+            if not order.manager:
+                order.manager = request.user
+
+            order.save()
+
+            # Сохраняем позиции (компоненты скопируются автоматически в OrderItem.save())
+            formset.instance = order
+            formset.save()
+
+            # Пересчитываем цены позиций
+            for item in order.items.all():
+                item.refresh_prices()
+
+            # Пересчитываем текущий этап
+            order.update_current_stage()
+
+            # Перенаправляем на карточку заказа
+            from django.shortcuts import redirect
+
+            return redirect("dashboard:order_detail", pk=order.pk)
+
+        context = {
+            "form": form,
+            "formset": formset,
+        }
+        from django.shortcuts import render
+
+        return render(request, self.template_name, context)

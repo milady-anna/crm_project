@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Новый заказ{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Хлебные крошки -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard:order_list' %}">Список заказов</a></li>
+            <li class="breadcrumb-item active">Новый заказ</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="bi bi-plus-circle"></i> Создание нового заказа</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        {% if form.errors or formset.errors %}
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Исправьте ошибки в форме
+                            {% if form.errors %}
+                                <ul class="mb-0 mt-2">
+                                    {% for field, errors in form.errors.items %}
+                                        {% for error in errors %}
+                                            <li>{{ field }}: {{ error }}</li>
+                                        {% endfor %}
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- ОСНОВНАЯ ИНФОРМАЦИЯ -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Основная информация</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Номер заказа *</label>
+                                        {{ form.number }}
+                                        {% if form.number.errors %}
+                                            <div class="text-danger small">{{ form.number.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Заказчик *</label>
+                                        {{ form.client }}
+                                        {% if form.client.errors %}
+                                            <div class="text-danger small">{{ form.client.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold">Менеджер *</label>
+                                        {{ form.manager }}
+                                        {% if form.manager.errors %}
+                                            <div class="text-danger small">{{ form.manager.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Тип заказа *</label>
+                                        {{ form.order_type }}
+                                        <small class="text-muted d-block mt-1">
+                                            Определяет набор подэтапов
+                                        </small>
+                                        {% if form.order_type.errors %}
+                                            <div class="text-danger small">{{ form.order_type.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semibold">Дата по договору *</label>
+                                        {{ form.deadline_plan }}
+                                        {% if form.deadline_plan.errors %}
+                                            <div class="text-danger small">{{ form.deadline_plan.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label fw-semibold">Предоплата (%)</label>
+                                        {{ form.prepayment_percent }}
+                                        {% if form.prepayment_percent.errors %}
+                                            <div class="text-danger small">{{ form.prepayment_percent.errors.0 }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ПОЗИЦИИ ЗАКАЗА -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0"><i class="bi bi-box-seam"></i> Позиции заказа</h5>
+                                <small class="text-muted">Компоненты подтянутся автоматически из товара</small>
+                            </div>
+                            <div class="card-body p-0">
+                                {{ formset.management_form }}
+                                
+                                <div class="table-responsive">
+                                    <table class="table table-hover mb-0" id="items-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th style="width: 40%;">Товар *</th>
+                                                <th style="width: 15%;">Кол-во *</th>
+                                                <th style="width: 20%;">Наценка (%)</th>
+                                                <th style="width: 20%;">Цена за ед. (₽)</th>
+                                                <th style="width: 5%;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="items-tbody">
+                                            {% for item_form in formset %}
+                                            <tr class="item-row {% if item_form.instance.pk %}existing-item{% endif %}">
+                                                <td>
+                                                    {{ item_form.product }}
+                                                    {% if item_form.product.errors %}
+                                                        <div class="text-danger small">{{ item_form.product.errors.0 }}</div>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {{ item_form.quantity }}
+                                                    {% if item_form.quantity.errors %}
+                                                        <div class="text-danger small">{{ item_form.quantity.errors.0 }}</div>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {{ item_form.markup_percent }}
+                                                </td>
+                                                <td>
+                                                    {{ item_form.price }}
+                                                    <small class="text-muted d-block">авто или вручную</small>
+                                                </td>
+                                                <td class="text-center">
+                                                    {% if item_form.can_delete %}
+                                                        {{ item_form.DELETE }}
+                                                        <label class="form-check-label" for="{{ item_form.DELETE.id_for_label }}">
+                                                            <i class="bi bi-trash text-danger"></i>
+                                                        </label>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div class="p-3 bg-light border-top">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="add-item-btn">
+                                        <i class="bi bi-plus"></i> Добавить позицию
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ДОКУМЕНТЫ -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0"><i class="bi bi-folder"></i> Документы (необязательно)</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-4">
+                                        <label class="form-label">Номер договора</label>
+                                        {{ form.contract_number }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Ссылка на брендбук</label>
+                                        {{ form.brandbook_url }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Ссылка на договор</label>
+                                        {{ form.contract_url }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Ссылка на КП</label>
+                                        {{ form.kp_url }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- КНОПКИ -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Отмена
+                            </a>
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-lg"></i> Создать заказ
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Шаблон для новой строки (скрытый) -->
+<template id="empty-row-template">
+    <tr class="item-row new-item">
+        <td>
+            <select name="items-__prefix__-product" class="form-select" id="id_items-__prefix__-product" required>
+                <option value="">---------</option>
+                {% for product in form.fields.items.queryset %}
+                    <option value="{{ product.pk }}">{{ product.name }}</option>
+                {% endfor %}
+            </select>
+        </td>
+        <td>
+            <input type="number" name="items-__prefix__-quantity" class="form-control" 
+                   id="id_items-__prefix__-quantity" value="1" min="1" required>
+        </td>
+        <td>
+            <input type="number" name="items-__prefix__-markup_percent" class="form-control" 
+                   id="id_items-__prefix__-markup_percent" value="30.00" step="0.01">
+        </td>
+        <td>
+            <input type="number" name="items-__prefix__-price" class="form-control" 
+                   id="id_items-__prefix__-price" value="0" step="0.01">
+            <small class="text-muted d-block">авто или вручную</small>
+        </td>
+        <td class="text-center">
+            <input type="checkbox" name="items-__prefix__-DELETE" class="form-check-input" 
+                   id="id_items-__prefix__-DELETE">
+            <label class="form-check-label" for="id_items-__prefix__-DELETE">
+                <i class="bi bi-trash text-danger"></i>
+            </label>
+        </td>
+    </tr>
+</template>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const addBtn = document.getElementById('add-item-btn');
+        const tbody = document.getElementById('items-tbody');
+        const template = document.getElementById('empty-row-template');
+        const managementForm = document.getElementById('id_items-TOTAL_FORMS');
+        
+        addBtn.addEventListener('click', function() {
+            const currentCount = parseInt(managementForm.value);
+            const newRow = template.content.cloneNode(true);
+            
+            // Заменяем __prefix__ на текущий индекс
+            const html = newRow.querySelector('tr').outerHTML
+                .replace(/__prefix__/g, currentCount);
+            
+            tbody.insertAdjacentHTML('beforeend', html);
+            managementForm.value = currentCount + 1;
+        });
+    });
+</script>
+{% endblock %}
