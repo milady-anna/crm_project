@@ -32,7 +32,26 @@ urlpatterns = [
     ),
     path(
         "orders/<int:pk>/budget/",
-        views.AddBudgetItemView.as_view(),
-        name="add_budget_item",
+        views.AddBudgetItemView.as_view(), name="add_budget_item",
+    ),
+    path(
+        "order-items/<int:pk>/update/",
+        views.UpdateOrderItemView.as_view(), name="update_order_item",
+    ),
+    path(
+        "orders/<int:pk>/items/add/",
+        views.AddOrderItemView.as_view(), name="add_order_item",
+    ),
+    path(
+        "order-items/<int:pk>/delete/",
+        views.DeleteOrderItemView.as_view(), name="delete_order_item",
+    ),
+    path(
+        "orders/<int:pk>/documents/",
+        views.UpdateOrderDocumentsView.as_view(), name="update_order_documents",
+    ),
+    path(
+        "budget-items/<int:pk>/update/",
+        views.UpdateBudgetItemView.as_view(), name="update_budget_item",
     ),
 ]

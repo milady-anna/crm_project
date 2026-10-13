@@ -74,4 +74,4 @@ class ContractorReview(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Оценка {self.contractor.short_name}: {self.rating}/5"
+        return f"Оценка {self.contractor}: {self.rating}/5"

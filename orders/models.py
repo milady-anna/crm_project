@@ -139,6 +139,12 @@ class Order(models.Model):
     kp_url = models.URLField(
         max_length=500, blank=True, verbose_name="Ссылка на КП (облако)"
     )
+    contract_file = models.FileField(
+        upload_to="orders/contracts/", null=True, blank=True, verbose_name="Файл договора"
+    )
+    kp_file = models.FileField(
+        upload_to="orders/kp/", null=True, blank=True, verbose_name="Файл КП"
+    )
     prepayment_percent = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -364,34 +370,63 @@ class OrderItem(models.Model):
         max_digits=10,
         decimal_places=2,
         default=0,
-        verbose_name="Себестоимость (рассчитана)",
+        verbose_name="Цена подрядчика за 1 шт. (расчётная)",
     )
-    tax_rate = models.DecimalField(
-        max_digits=5,
+    manual_cost = models.DecimalField(
+        max_digits=10,
         decimal_places=2,
-        default=20.00,
-        verbose_name="Налоговая ставка (%)",
-        help_text="Например, 20 для НДС. В будущем будет браться из товара.",
+        null=True,
+        blank=True,
+        verbose_name="Цена подрядчика вручную (за 1 шт.)",
+        help_text="Если заполнено — используется вместо расчёта по компонентам "
+        "(цены поставщиков в базе ориентировочные).",
     )
 
     @property
     def tax_amount(self):
-        """Сумма налога в позиции"""
-        return round(self.total * (self.tax_rate / 100), 2)
+        """Сумма налога в позиции (цена уже включает налог, выделяем «в том числе»)"""
+        rate = Decimal(str(self.tax_rate))
+        if rate <= 0:
+            return Decimal("0.00")
+        return round(self.total - self.total / (1 + rate / 100), 2)
 
     @property
     def net_markup_amount(self):
-        """Чистая сумма наценки (без учета налога)"""
+        """Валовая маржа: выручка минус себестоимость спецификации."""
         return round(self.total - (self.quantity * self.cost_value), 2)
 
     @property
+    def margin_percent(self):
+        """Маржинальность в % от выручки (безопасно при нулевой цене)."""
+        if self.total == 0:
+            return Decimal("0")
+        return round(self.net_markup_amount / self.total * 100, 2)
+
+    @property
     def markup_percent_effective(self):
-        """Фактическая наценка в процентах"""
-        if self.cost_value == 0:
-            return 0
-        return round(
-            (self.net_markup_amount / (self.quantity * self.cost_value)) * 100, 2
-        )
+        """Фактическая наценка к себестоимости в процентах."""
+        base = self.quantity * self.cost_value
+        if base == 0:
+            return Decimal("0")
+        return round(self.net_markup_amount / base * 100, 2)
+
+    @property
+    def net_total(self):
+        """Цена подрядчика по всей позиции (без наценки и налога)."""
+        return round(self.quantity * self.cost_value, 2)
+
+    @property
+    def markup_total_percent(self):
+        """Наценка итого, % = (Итого - Налог - Цена подрядчика) / Цена подрядчика × 100.
+
+        По сути это фактическая наценка к цене подрядчика с учётом всех
+        ручных правок цены/количества (может отличаться от поля markup_percent,
+        если менеджер правил итоговую цену вручную).
+        """
+        base = self.net_total
+        if base == 0:
+            return Decimal("0")
+        return round((self.total - self.tax_amount - base) / base * 100, 2)
 
     def __str__(self):
         return f"{self.product.name} × {self.quantity}"
@@ -405,13 +440,28 @@ class OrderItem(models.Model):
         return self.quantity * self.price
 
     def recalculate(self):
-        """Считает себестоимость и цену по СОБСТВЕННЫМ компонентам позиции."""
+        """Считает себестоимость и цену по СОБСТВЕННЫМ компонентам позиции.
+
+        Цена подрядчика (cost_value) — это сумма компонентов на 1 штуку.
+        Менеджер может вручную задать цену подрядчика (manual_cost) — тогда
+        она имеет приоритет над расчётом по компонентам (цены поставщиков
+        в базе ориентировочные и часто меняются).
+
+        Итоговая цена за единицу = цена подрядчика × (1 + наценка%).
+        Налог выделяется «в том числе» из итоговой цены.
+        """
         components = list(self.components.all())
-        if not components:
-            return  # спецификации нет - цена остаётся такой, как ввёл менеджер
-        cost = sum((c.quantity * c.unit_price for c in components), Decimal("0"))
-        markup = Decimal(str(self.markup_percent))
-        self.cost_value = round(cost, 2)
+        if self.manual_cost is not None:
+            unit_cost = Decimal(str(self.manual_cost))
+        elif components:
+            unit_cost = sum(
+                (c.quantity * c.unit_price for c in components), Decimal("0")
+            )
+        else:
+            # спецификации нет и ручной цены нет - цена остаётся как есть
+            return
+        self.cost_value = round(unit_cost, 2)
+        markup = Decimal(str(self.markup_percent or 0))
         self.price = round(self.cost_value * (1 + markup / 100), 2)
 
     def refresh_prices(self):

@@ -21,7 +21,7 @@ from .services import sync_order
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 1
-    fields = ("product", "quantity", "markup_percent", "tax_rate", "price")
+    fields = ("product", "quantity", "manual_cost", "markup_percent", "tax_rate", "price")
 
 
 class OrderItemComponentInline(admin.TabularInline):
