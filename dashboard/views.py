@@ -4,7 +4,9 @@ from decimal import Decimal, InvalidOperation
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.db.models import Q
@@ -672,6 +674,9 @@ class OrderCreateView(LoginRequiredMixin, View):
             "clients": Client.objects.order_by("name"),
             "order_types": OrderType.objects.order_by("name"),
             "stages": Stage.objects.order_by("order_index"),
+            "users": User.objects.filter(is_active=True).order_by(
+                "-is_superuser", "-is_staff", "first_name", "username"
+            ),
             "today": timezone.localdate(),
             "data": data or {},
             "errors": errors or {},

@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Новый заказ{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Новый заказ</h2>
+        <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> К списку заказов
+        </a>
+    </div>
+
+    {% if errors %}
+        <div class="alert alert-danger">
+            <strong>Исправьте ошибки в форме:</strong>
+            <ul class="mb-0 mt-1">
+                {% for field, msg in errors.items %}
+                    <li>{{ msg }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Основное</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_number">Номер заказа <span class="text-danger">*</span></label>
+                        <input type="text" name="number" id="id_number" class="form-control {% if errors.number %}is-invalid{% endif %}"
+                               value="{{ data.number|default:'' }}" placeholder="Например: 2026-045" required>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label" for="id_contract_number">Номер договора</label>
+                        <input type="text" name="contract_number" id="id_contract_number" class="form-control"
+                               value="{{ data.contract_number|default:'' }}" placeholder="Доп. соглашение №... (необязательно)">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_client">Заказчик <span class="text-danger">*</span></label>
+                        <select name="client" id="id_client" class="form-select {% if errors.client %}is-invalid{% endif %}" required>
+                            <option value="">— выберите заказчика —</option>
+                            {% for c in clients %}
+                                <option value="{{ c.pk }}" {% if data.client == c.pk|stringformat:"d" %}selected{% endif %}>
+                                    {{ c.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_order_type">Тип заказа <span class="text-danger">*</span></label>
+                        <select name="order_type" id="id_order_type" class="form-select {% if errors.order_type %}is-invalid{% endif %}" required>
+                            <option value="">— выберите тип —</option>
+                            {% for t in order_types %}
+                                <option value="{{ t.pk }}" {% if data.order_type == t.pk|stringformat:"d" %}selected{% endif %}>
+                                    {{ t.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Подэтапы будут созданы автоматически по шаблону типа.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="id_manager">Менеджер</label>
+                        <select name="manager" id="id_manager" class="form-select">
+                            {% for u in users %}
+                                <option value="{{ u.pk }}"
+                                    {% if data.manager %}
+                                        {% if data.manager == u.pk|stringformat:"d" %}selected{% endif %}
+                                    {% elif u.pk == request.user.pk %}selected{% endif %}>
+                                    {{ u.get_full_name|default:u.username }}{% if not u.is_staff and not u.is_superuser %} (менеджер){% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">По умолчанию — вы. Руководитель может назначить другого.</div>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="id_deadline_plan">Плановый дедлайн <span class="text-danger">*</span></label>
+                        <input type="date" name="deadline_plan" id="id_deadline_plan"
+                               class="form-control {% if errors.deadline_plan %}is-invalid{% endif %}"
+                               value="{{ data.deadline_plan|default:'' }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="id_prepayment">Предоплата, %</label>
+                        <input type="number" name="prepayment_percent" id="id_prepayment"
+                               class="form-control {% if errors.prepayment_percent %}is-invalid{% endif %}"
+                               value="{{ data.prepayment_percent|default:'0' }}" min="0" max="100" step="0.01">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Ссылки (необязательно)</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_brandbook">Брендбук</label>
+                        <input type="url" name="brandbook_url" id="id_brandbook"
+                               class="form-control {% if errors.brandbook_url %}is-invalid{% endif %}"
+                               value="{{ data.brandbook_url|default:'' }}" placeholder="https://...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_kp">КП</label>
+                        <input type="url" name="kp_url" id="id_kp"
+                               class="form-control {% if errors.kp_url %}is-invalid{% endif %}"
+                               value="{{ data.kp_url|default:'' }}" placeholder="https://...">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="id_contract">Договор</label>
+                        <input type="url" name="contract_url" id="id_contract"
+                               class="form-control {% if errors.contract_url %}is-invalid{% endif %}"
+                               value="{{ data.contract_url|default:'' }}" placeholder="https://...">
+                    </div>
+                </div>
+                <div class="form-text mt-2">Файлы договора и КП можно загрузить уже на странице созданного заказа.</div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check2"></i> Создать заказ
+            </button>
+            <a href="{% url 'dashboard:order_list' %}" class="btn btn-outline-secondary btn-lg">Отмена</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

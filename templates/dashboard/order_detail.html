@@ -24,7 +24,7 @@
                             Заказ #{{ order.number }}
                         </h2>
                         <span class="fs-4 text-muted">для</span>
-                        <a href="{% url 'admin:partners_client_change' order.client.pk %}" 
+                        <a href="{% url 'dashboard:client_detail' order.client.pk %}" 
                            class="text-decoration-none fw-bold fs-4 text-primary ms-2">
                             {{ order.client.name }}
                         </a>
@@ -110,7 +110,7 @@
                             <tr>
                                 <th style="width: 22%;">Товар</th>
                                 <th style="width: 6%;" class="text-center">Кол-во</th>
-                                <th style="width: 12%;" class="text-end">Цена подрядчика (за 1 шт.)</th>
+                                <th style="width: 12%;" class="text-end">Цена подрядчика</th>
                                 <th style="width: 8%;" class="text-end">Наша наценка, %</th>
                                 <th style="width: 9%;" class="text-end">Наценка итого, руб</th>
                                 <th style="width: 8%;" class="text-end">Наценка итого, %</th>
@@ -150,7 +150,6 @@
                                                placeholder="{{ item.cost_value|floatformat:2 }}" min="0" step="0.01">
                                         <span class="input-group-text">₽</span>
                                     </div>
-                                    <div class="small text-muted text-end calc-base-hint" data-base="{{ item.cost_value }}">из базы: {{ item.cost_value|floatformat:0 }} ₽</div>
                                 </td>
                                 <td class="num-cell">
                                     <div class="input-group input-group-sm justify-content-end">
@@ -201,7 +200,7 @@
                                         <thead>
                                             <tr>
                                                 <th>Товар поставщика</th>
-                                                <th class="text-end">Кол-во на 1 шт.</th>
+                                                <th class="text-end">Кол-во</th>
                                                 <th class="text-end">Ориентировочная цена</th>
                                                 <th class="text-end">Сумма на 1 шт.</th>
                                             </tr>
@@ -223,10 +222,6 @@
                                             </tr>
                                         </tfoot>
                                     </table>
-                                    <a class="btn btn-sm btn-outline-primary"
-                                       href="{% url 'admin:orders_orderitem_change' item.pk %}#orderitemcomponent_set-group">
-                                        <i class="bi bi-gear"></i> Настроить состав и ориентировочные цены
-                                    </a>
                                     <div class="small text-muted mt-1">Цены в базе ориентировочные — фактическую цену подрядчика можно ввести прямо в строке выше.</div>
                                 </td>
                             </tr>
