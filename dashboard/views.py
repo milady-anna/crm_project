@@ -85,13 +85,38 @@ class OrderListView(LoginRequiredMixin, ListView):
         return queryset
 
     def get_context_data(self, **kwargs):
+        from django.utils import timezone
+
         context = super().get_context_data(**kwargs)
         context["stages"] = Stage.objects.all()
         context["show_completed"] = self.request.GET.get("show_completed", "")
+        context["today"] = timezone.localdate()
 
-        # Сортировка по ближайшему дедлайну в Python
+        # Для каждого заказа находим ближайший подэтап
         orders = list(context["orders"])
-        orders.sort(key=lambda o: o.nearest_deadline)
+        for order in orders:
+            order.cashed_nearest_substage = (
+                order.substages.filter(status__in=["not_started", "in_progress"])
+                .order_by("deadline")
+                .first()
+            )
+
+        # Сортировка
+        today = timezone.localdate()
+        orders.sort(
+            key=lambda o: (
+                (
+                    0
+                    if o.cashed_nearest_substage and o.cashed_nearest_substage.deadline
+                    else 1
+                ),
+                (
+                    o.cashed_nearest_substage.deadline
+                    if o.cashed_nearest_substage and o.cashed_nearest_substage.deadline
+                    else today
+                ),
+            )
+        )
         context["orders"] = orders
 
         return context
@@ -948,6 +973,7 @@ class AddContractorReviewView(LoginRequiredMixin, View):
                 check_order_access(request, order)
                 review.order = order
         review.save()
+        contractor.update_rating()
         messages.success(request, "Оценка подрядчика сохранена.")
         return redirect("dashboard:contractor_detail", pk=pk)
 
@@ -1011,28 +1037,15 @@ class OrderCreateView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
 
 
-class AddContractorReviewView(LoginRequiredMixin, View):
-    """Добавление отзыва/оценки подрядчику"""
+class UpdateContractorCommentView(LoginRequiredMixin, View):
+    """Быстрое обновление примечания подрядчика"""
 
     def post(self, request, pk):
         contractor = get_object_or_404(Contractor, pk=pk)
-        rating = request.POST.get("rating", 0)
-        comment = request.POST.get("comment", "").strip()
-        order_id = request.POST.get("order")
+        new_comment = request.POST.get("comment", "").strip()
 
-        if rating and comment:
-            from partners.models import ContractorReview
+        contractor.comment = new_comment
+        contractor.save(update_fields=["comment"])
 
-            review = ContractorReview(
-                contractor=contractor, rating=int(rating), comment=comment
-            )
-            if order_id and order_id.isdigit():
-                from orders.models import Order
-
-                review.order_id = order_id
-            review.save()
-
-            # <-- ДОБАВИТЬ ЭТУ СТРОКУ:
-            contractor.update_rating()
-
+        messages.success(request, "Примечание подрядчика обновлено.")
         return redirect("dashboard:contractor_detail", pk=pk)

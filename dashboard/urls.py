@@ -72,4 +72,9 @@ urlpatterns = [
         name="delete_transaction",
     ),
     path("orders/create/", views.OrderCreateView.as_view(), name="order_create"),
+    path(
+        "contractors/<int:pk>/update-comment/",
+        views.UpdateContractorCommentView.as_view(),
+        name="update_contractor_comment",
+    ),
 ]

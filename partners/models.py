@@ -36,6 +36,15 @@ class Client(models.Model):
         verbose_name="Наценка по умолчанию (%)",
     )
 
+    def phone_display(self):
+        """Возвращает номер в едином формате +7XXXXXXXXXX"""
+        if self.phone:
+            try:
+                return self.phone.as_e164  # PhoneNumberField
+            except AttributeError:
+                return str(self.phone)
+        return "—"
+
     def __str__(self):
         return self.name
 
@@ -54,11 +63,35 @@ class Contractor(models.Model):
     )
     phone = PhoneNumberField(verbose_name="Номер телефона", blank=True)
     payment_details = models.TextField(blank=True, verbose_name="Реквизиты оплаты")
+    address = models.TextField(blank=True, verbose_name="Адрес")
+    comment = models.TextField(blank=True, verbose_name="Примечание")
     rating = models.PositiveSmallIntegerField(
-        default=3,
-        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(5)],
         verbose_name="Рейтинг надёжности (1-5)",
     )
+
+    def update_rating(self):
+        """Пересчитывает средний рейтинг на основе отзывов"""
+        from partners.models import ContractorReview
+
+        reviews = ContractorReview.objects.filter(contractor=self)
+        if reviews.exists():
+            avg = reviews.aggregate(models.Avg("rating"))["rating__avg"]
+            self.rating = round(avg) if avg else 3
+        else:
+            self.rating = 0  # рейтинг по умолчанию
+
+        Contractor.objects.filter(pk=self.pk).update(rating=self.rating)
+
+    def phone_display(self):
+        """Возвращает номер в едином формате +7XXXXXXXXXX"""
+        if self.phone:
+            try:
+                return self.phone.as_e164  # PhoneNumberField
+            except AttributeError:
+                return str(self.phone)
+        return "—"
 
     def __str__(self):
         return self.name
@@ -98,16 +131,3 @@ class ContractorReview(models.Model):
 
     def __str__(self):
         return f"Оценка {self.contractor}: {self.rating}/5"
-
-    def update_rating(self):
-        """Пересчитывает средний рейтинг на основе отзывов"""
-        from partners.models import ContractorReview
-
-        reviews = ContractorReview.objects.filter(contractor=self)
-        if reviews.exists():
-            avg = reviews.aggregate(models.Avg("rating"))["rating__avg"]
-            self.rating = round(avg) if avg else 3
-        else:
-            self.rating = 3  # рейтинг по умолчанию
-
-        Contractor.objects.filter(pk=self.pk).update(rating=self.rating)

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 {% load rating_tags %}
 
 {% block title %}Список заказов{% endblock %}
@@ -52,8 +52,8 @@
     <div class="row g-3">
         {% for order in orders %}
         <div class="col-12">
-            <div class="card {% if order.is_completed %}bg-light{% endif %} {% if order.has_overdue_substages %}border-danger{% endif %}" 
-                 style="border-left: 5px solid {{ order.nearest_deadline|deadline_color }};">
+            <div class="card {% if order.is_completed %}bg-success bg-opacity-10{% endif %}" 
+                 style="border-left: 5px solid {% if order.is_completed %}#198754{% elif order.has_overdue_substages %}#dc3545{% else %}{{ order.nearest_deadline|deadline_color }}{% endif %};">
                 <div class="card-body">
                     <div class="row">
                         <!-- Левая часть -->
@@ -65,30 +65,51 @@
                                         Заказ #{{ order.number }}
                                     </a>
                                 </h4>
-                                <span class="badge bg-secondary me-2 fs-5 px-3 py-2">
-                                    {{ order.current_stage.name|default:"Не назначен" }}
+                                {% if order.is_completed %}
+                                <span class="badge bg-success me-2 px-2 py-1" style="font-size: 0.8rem;">
+                                    Завершён
                                 </span>
+                                {% elif order.current_stage %}
+                                <span class="badge stage-color-{{ order.current_stage.pk }} me-2 px-2 py-1" style="font-size: 0.8rem;">
+                                    {{ order.current_stage.name }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary me-2 px-2 py-1" style="font-size: 0.8rem;">
+                                    Не назначен
+                                </span>
+                                {% endif %}
                                 <span class="text-muted me-2 fs-5">для</span>
-                                <a href="{% url 'admin:partners_client_change' order.client.pk %}" 
+                                <a href="{% url 'dashboard:client_detail' order.client.pk %}" 
                                    class="text-decoration-none fw-bold fs-5">
                                     {{ order.client.name }}
                                 </a>
                             </div>
 
                             <!-- Ближайший подэтап -->
-                            {% if order.nearest_substage %}
+                            {% if order.cashed_nearest_substage %}
                             <div class="mb-2">
                                 <button class="btn btn-sm btn-link p-0 text-decoration-none d-flex align-items-center"
                                         data-bs-toggle="collapse" 
                                         data-bs-target="#substages-{{ order.pk }}"
                                         aria-expanded="false">
-                                    <span class="{% if order.nearest_substage.deadline < today %}text-danger fw-bold{% elif order.nearest_substage.deadline == today %}text-warning fw-bold{% else %}text-dark{% endif %}">
-                                        {{ order.nearest_substage.name }}
+                                    <span class="{% if order.cashed_nearest_substage.deadline < today %}text-danger fw-bold{% elif order.cashed_nearest_substage.deadline == today %}text-warning fw-bold{% else %}text-dark{% endif %}">
+                                        {{ order.cashed_nearest_substage.name }}
                                     </span>
                                     <span class="text-muted ms-2 me-1">до</span>
-                                    <span class="{% if order.nearest_substage.deadline < today %}text-danger{% elif order.nearest_substage.deadline == today %}text-warning{% else %}text-success{% endif %}">
-                                        {{ order.nearest_substage.deadline|date:"d.m.Y" }}
+                                    <span class="{% if order.cashed_nearest_substage.deadline < today %}text-danger{% elif order.cashed_nearest_substage.deadline == today %}text-warning{% else %}text-success{% endif %}">
+                                        {{ order.cashed_nearest_substage.deadline|date:"d.m.Y" }}
                                     </span>
+                                    {% if order.cashed_nearest_substage.deadline %}
+                                    <span class="badge {% if order.cashed_nearest_substage.deadline < today %}bg-danger{% elif order.cashed_nearest_substage.deadline == today %}bg-warning{% else %}bg-success{% endif %} ms-2" style="font-size: 0.75rem;">
+                                        {% if order.cashed_nearest_substage.deadline < today %}
+                                            Просрочено
+                                        {% elif order.cashed_nearest_substage.deadline == today %}
+                                            Сегодня
+                                        {% else %}
+                                            {{ order.cashed_nearest_substage.deadline|timeuntil:today }}
+                                        {% endif %}
+                                    </span>
+                                    {% endif %}
                                     <i class="bi bi-chevron-down ms-2"></i>
                                 </button>
 
@@ -96,9 +117,20 @@
                                 <div class="collapse mt-2" id="substages-{{ order.pk }}">
                                     <ul class="list-unstyled mb-0 small border-start ps-3">
                                         {% for sub in order.substages.all %}
-                                        <li class="py-1 {% if sub.status == 'completed' %}text-success text-decoration-line-through{% elif sub.deadline < today and sub.status != 'completed' %}text-danger{% endif %}">
+                                        <li class="py-1 px-2 rounded mb-1 {% if sub.status == 'completed' %}bg-success bg-opacity-25 text-success text-decoration-line-through{% elif sub.deadline < today and sub.status != 'completed' %}bg-danger bg-opacity-10 text-danger{% endif %}">
                                             <span class="fw-semibold">{{ sub.name }}</span>
                                             <span class="text-muted ms-2">— {{ sub.deadline|date:"d.m.Y" }}</span>
+                                            {% if sub.deadline %}
+                                                <span class="badge {% if sub.deadline < today and sub.status != 'completed' %}bg-danger{% elif sub.deadline == today %}bg-warning{% else %}bg-info{% endif %} ms-1" style="font-size: 0.7rem;">
+                                                    {% if sub.deadline < today and sub.status != 'completed' %}
+                                                        Просрочено
+                                                    {% elif sub.deadline == today %}
+                                                        Сегодня
+                                                    {% else %}
+                                                        {{ sub.deadline|timeuntil:today }}
+                                                    {% endif %}
+                                                </span>
+                                            {% endif %}
                                             {% if sub.status == 'completed' %}
                                                 <span class="badge bg-success ms-1">✓</span>
                                             {% elif sub.status == 'in_progress' %}
@@ -231,4 +263,12 @@
     </nav>
     {% endif %}
 </div>
+
+<!-- Цвета для этапов -->
+<style>
+{% for stage in stages %}
+.stage-color-{{ stage.pk }} { background-color: {% cycle '#0d6efd' '#198754' '#0dcaf0' '#ffc107' '#dc3545' '#6c757d' '#6610f2' '#d63384' %} !important; color: white !important; }
+{% endfor %}
+.stage-color-0 { background-color: #6c757d !important; color: white !important; }
+</style>
 {% endblock %}

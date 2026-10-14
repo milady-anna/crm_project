@@ -1,0 +1,6 @@
+Django>=5.0,<6.0
+psycopg2-binary>=2.9.9  # Драйвер для PostgreSQL
+django-phonenumber-field>=7.3.0
+phonenumbers>=8.13.27
+python-dotenv>=1.0.0  # Для работы с .env файлом
+Pillow>=10.0.0  # Для работы с файлами (если ещё не добавлено)

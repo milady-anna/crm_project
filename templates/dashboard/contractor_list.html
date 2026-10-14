@@ -81,15 +81,15 @@
 
                         <!-- Рейтинг в квадратике -->
                         <div class="col-md-2 text-center">
-                            {% if contractor.average_rating > 0 %}
+                            {% if contractor.rating > 0 %}
                                 <div class="d-inline-flex align-items-center justify-content-center rounded" 
-                                     style="background-color: {{ contractor.average_rating|rating_color }}; 
+                                     style="background-color: {{ contractor.rating|rating_color }}; 
                                             color: white; 
                                             padding: 8px 14px; 
                                             font-size: 18px; 
                                             font-weight: bold; 
                                             min-width: 60px;">
-                                    {{ contractor.average_rating }}<i class="bi bi-star-fill ms-1" style="font-size: 16px;"></i>
+                                    {{ contractor.rating }}<i class="bi bi-star-fill ms-1" style="font-size: 16px;"></i>
                                 </div>
                             {% else %}
                                 <div class="d-inline-flex align-items-center justify-content-center rounded" 
